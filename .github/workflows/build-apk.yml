@@ -7,7 +7,6 @@ on:
       - 'v*'
   workflow_dispatch:
 
-# 赋予自动发布 Release 的权限
 permissions:
   contents: write
 
@@ -42,21 +41,38 @@ jobs:
       - name: 编译 Debug APK
         run: gradle assembleDebug
 
+      - name: 准备版本号与更新描述
+        run: |
+          VERSION="v1.0.${{ github.run_number }}"
+          
+          # 1. 将安装包重命名为带版本号的文件名 (例如: Harmonia-Studio-X-v1.0.3.apk)
+          cp app/build/outputs/apk/debug/*.apk "./Harmonia-Studio-X-${VERSION}.apk"
+          
+          # 2. 自动抓取你在 AI Studio 填写的提交信息生成更新日志
+          cat << 'EOF' > release_notes.md
+          ### 📝 本次更新内容
+          ${{ github.event.head_commit.message }}
+
+          ---
+          * 构建编号: #${{ github.run_number }}
+          * 提交分支: ${{ github.ref_name }}
+          EOF
+
       - name: 上传构建产物至 Actions
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: Harmonia-Studio-X-debug
-          path: app/build/outputs/apk/debug/*.apk
+          path: Harmonia-Studio-X-*.apk
 
-      # 每次推送到 main 分支，自动覆盖更新主页右侧的 Releases
-      - name: 自动发布/更新到 Releases
+      - name: 自动发布新版本到 Releases
         uses: softprops/action-gh-release@v2
         if: github.ref == 'refs/heads/main'
         with:
-          tag_name: latest
-          name: "Harmonia Studio X 最新安装包 (持续构建)"
-          body: "由 Google AI Studio 最新推送自动构建更新的安卓 APK。"
-          files: app/build/outputs/apk/debug/*.apk
+          tag_name: v1.0.${{ github.run_number }}
+          name: "Harmonia Studio X v1.0.${{ github.run_number }}"
+          body_path: release_notes.md
+          generate_release_notes: true
+          files: Harmonia-Studio-X-*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
