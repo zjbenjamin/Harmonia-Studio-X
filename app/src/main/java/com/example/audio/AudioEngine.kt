@@ -38,6 +38,10 @@ class AudioEngine {
     // Master settings
     @Volatile var masterVolume: Float = 0.85f
 
+    // Real-time Pitch Bend (-2 to +2 semitones) and Modulation (0 to 1)
+    @Volatile var pitchBendSemitones: Float = 0f
+    @Volatile var modulationDepth: Float = 0f
+
     // Live custom patch overrides
     private val patchMap = mutableMapOf<InstrumentType, InstrumentPatch>()
 
@@ -56,16 +60,23 @@ class AudioEngine {
     }
 
     fun start() {
-        if (isEngineRunning) return
+        if (isEngineRunning && audioTrack != null && audioTrack?.state == AudioTrack.STATE_INITIALIZED) {
+            if (audioTrack?.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                try {
+                    audioTrack?.play()
+                } catch (_: Exception) {}
+            }
+            return
+        }
         try {
             val minBufSize = AudioTrack.getMinBufferSize(
                 SAMPLE_RATE,
                 AudioFormat.CHANNEL_OUT_MONO,
                 AudioFormat.ENCODING_PCM_16BIT
             )
-            val bufferSize = max(minBufSize, BUFFER_SIZE_FRAMES * 2 * 2)
+            val bufferSize = if (minBufSize > 0) max(minBufSize * 2, BUFFER_SIZE_FRAMES * 4) else 8192
 
-            audioTrack = AudioTrack.Builder()
+            val track = AudioTrack.Builder()
                 .setAudioAttributes(
                     AudioAttributes.Builder()
                         .setUsage(AudioAttributes.USAGE_MEDIA)
@@ -83,12 +94,18 @@ class AudioEngine {
                 .setTransferMode(AudioTrack.MODE_STREAM)
                 .build()
 
-            audioTrack?.play()
-            isEngineRunning = true
+            if (track.state == AudioTrack.STATE_INITIALIZED) {
+                audioTrack = track
+                track.play()
+                isEngineRunning = true
 
-            renderScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
-            renderScope?.launch {
-                runAudioRenderLoop()
+                renderScope?.cancel()
+                renderScope = CoroutineScope(Dispatchers.Default + SupervisorJob())
+                renderScope?.launch {
+                    runAudioRenderLoop()
+                }
+            } else {
+                Log.e("AudioEngine", "AudioTrack failed to initialize state=${track.state}")
             }
         } catch (e: Exception) {
             Log.e("AudioEngine", "Failed to initialize AudioTrack", e)
@@ -117,6 +134,9 @@ class AudioEngine {
         instrument: InstrumentType = InstrumentType.GRAND_PIANO,
         trackId: Long = 0L
     ) {
+        if (!isEngineRunning || audioTrack == null || audioTrack?.state != AudioTrack.STATE_INITIALIZED) {
+            start()
+        }
         val patch = getPatch(instrument)
         val transposedNote = midiNote + (patch.octaveTranspose * 12)
         val clampedNote = transposedNote.coerceIn(12, 127)
@@ -174,12 +194,15 @@ class AudioEngine {
         while (isEngineRunning && audioTrack != null) {
             floatMixBuffer.fill(0f)
 
+            val currentBend = pitchBendSemitones
+            val currentMod = modulationDepth
+
             // Render active voices
             synchronized(voiceLock) {
                 val iterator = activeVoices.iterator()
                 while (iterator.hasNext()) {
                     val voice = iterator.next()
-                    val voiceFinished = voice.renderNextBlock(floatMixBuffer, BUFFER_SIZE_FRAMES)
+                    val voiceFinished = voice.renderNextBlock(floatMixBuffer, BUFFER_SIZE_FRAMES, currentBend, currentMod)
                     if (voiceFinished) {
                         iterator.remove()
                     }
@@ -249,13 +272,15 @@ class AudioEngine {
             }
         }
 
-        fun renderNextBlock(buffer: FloatArray, frames: Int): Boolean {
+        fun renderNextBlock(buffer: FloatArray, frames: Int, pitchBend: Float = 0f, modulation: Float = 0f): Boolean {
             val attackSamples = (patch.attackMs * SAMPLE_RATE / 1000f).coerceAtLeast(1f)
             val decaySamples = (patch.decayMs * SAMPLE_RATE / 1000f).coerceAtLeast(1f)
             val releaseSamples = (patch.releaseMs * SAMPLE_RATE / 1000f).coerceAtLeast(1f)
             val sustain = patch.sustainLevel
 
-            val phaseInc = (2.0 * PI * frequency) / SAMPLE_RATE
+            val bentFreq = if (pitchBend != 0f) frequency * 2.0.pow(pitchBend.toDouble() / 12.0) else frequency
+            val vibrato = if (modulation > 0f) (sin(sampleIndex * 0.0007) * modulation.toDouble() * 0.025) else 0.0
+            val phaseInc = (2.0 * PI * bentFreq * (1.0 + vibrato)) / SAMPLE_RATE
             var finished = false
 
             for (i in 0 until frames) {

@@ -373,6 +373,14 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
+    fun setPitchBend(semitones: Float) {
+        audioEngine.pitchBendSemitones = semitones.coerceIn(-2f, 2f)
+    }
+
+    fun setModulation(depth: Float) {
+        audioEngine.modulationDepth = depth.coerceIn(0f, 1f)
+    }
+
     fun onLiveDrumTrigger(drumNote: Int, velocity: Float = 0.95f) {
         val state = _uiState.value
         audioEngine.playDrum(drumNote, velocity)

@@ -17,6 +17,7 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.math.abs
 import kotlin.math.log10
+import kotlin.math.max
 import kotlin.math.sqrt
 
 data class AudioRecordingState(
@@ -43,27 +44,37 @@ class AudioRecordManager(private val context: Context) {
     fun startRecording(targetFile: File? = null): Boolean {
         if (_recordingState.value.isRecording) return true
 
-        val minBufferSize = AudioRecord.getMinBufferSize(SAMPLE_RATE, CHANNEL_CONFIG, AUDIO_FORMAT)
-        if (minBufferSize <= 0) {
-            Log.e(TAG, "Invalid buffer size: $minBufferSize")
+        val sampleRates = listOf(44100, 48000, 16000)
+        val sources = listOf(MediaRecorder.AudioSource.MIC, MediaRecorder.AudioSource.DEFAULT)
+        var record: AudioRecord? = null
+        var chosenSampleRate = SAMPLE_RATE
+        var chosenBufferSize = 0
+
+        for (sr in sampleRates) {
+            val bufSize = AudioRecord.getMinBufferSize(sr, CHANNEL_CONFIG, AUDIO_FORMAT)
+            if (bufSize <= 0) continue
+            for (src in sources) {
+                try {
+                    val r = AudioRecord(src, sr, CHANNEL_CONFIG, AUDIO_FORMAT, bufSize * 2)
+                    if (r.state == AudioRecord.STATE_INITIALIZED) {
+                        record = r
+                        chosenSampleRate = sr
+                        chosenBufferSize = bufSize
+                        break
+                    } else {
+                        r.release()
+                    }
+                } catch (_: Exception) {}
+            }
+            if (record != null) break
+        }
+
+        if (record == null) {
+            Log.e(TAG, "No supported AudioRecord configuration found")
             return false
         }
 
         try {
-            val record = AudioRecord(
-                MediaRecorder.AudioSource.MIC,
-                SAMPLE_RATE,
-                CHANNEL_CONFIG,
-                AUDIO_FORMAT,
-                minBufferSize * 2
-            )
-
-            if (record.state != AudioRecord.STATE_INITIALIZED) {
-                Log.e(TAG, "AudioRecord failed to initialize")
-                record.release()
-                return false
-            }
-
             val outputFile = targetFile ?: File(context.cacheDir, "rec_${System.currentTimeMillis()}.wav")
             audioRecord = record
             record.startRecording()
@@ -76,7 +87,7 @@ class AudioRecordManager(private val context: Context) {
             )
 
             recordingJob = coroutineScope.launch {
-                val buffer = ShortArray(minBufferSize / 2)
+                val buffer = ShortArray(max(chosenBufferSize / 2, 1024))
                 val fos = FileOutputStream(outputFile)
                 // Write 44-byte dummy WAV header to be updated later
                 fos.write(ByteArray(44))
@@ -110,10 +121,12 @@ class AudioRecordManager(private val context: Context) {
                         }
                     }
                 } finally {
-                    fos.flush()
-                    fos.close()
+                    try {
+                        fos.flush()
+                        fos.close()
+                    } catch (_: Exception) {}
                     // Write true WAV header
-                    updateWavHeader(outputFile, totalBytesWritten, SAMPLE_RATE, 1)
+                    updateWavHeader(outputFile, totalBytesWritten, chosenSampleRate, 1)
                 }
             }
 
