@@ -172,6 +172,20 @@ class AudioEngine {
         }
     }
 
+    fun allNotesOff() {
+        synchronized(voiceLock) {
+            for (voice in activeVoices) {
+                voice.release()
+            }
+        }
+    }
+
+    fun silenceAll() {
+        synchronized(voiceLock) {
+            activeVoices.clear()
+        }
+    }
+
     fun playDrum(drumNote: Int, velocity: Float = 0.95f) {
         noteOn(
             midiNote = drumNote,
@@ -730,6 +744,7 @@ class AudioEngine {
 
             onProgress?.invoke(1.0f)
 
+            outputFile.parentFile?.mkdirs()
             FileOutputStream(outputFile).use { fos ->
                 fos.write(byteBuffer.array())
             }

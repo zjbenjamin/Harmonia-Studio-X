@@ -30,7 +30,9 @@ abstract class StudioDatabase : RoomDatabase() {
                     context.applicationContext,
                     StudioDatabase::class.java,
                     "harmonia_studio.db"
-                ).build()
+                )
+                .fallbackToDestructiveMigration()
+                .build()
                 INSTANCE = instance
                 instance
             }

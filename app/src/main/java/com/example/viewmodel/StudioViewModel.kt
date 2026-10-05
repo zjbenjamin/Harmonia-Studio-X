@@ -81,51 +81,55 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     private fun initializeProject() {
         viewModelScope.launch {
-            val project = repository.getInitialOrNewProject()
+            try {
+                val project = repository.getInitialOrNewProject()
 
-            // Observe project
-            launch {
-                repository.getProject(project.id).collect { proj ->
-                    if (proj != null) {
-                        _uiState.update { it.copy(currentProject = proj) }
+                // Observe project
+                launch {
+                    repository.getProject(project.id).collect { proj ->
+                        if (proj != null) {
+                            _uiState.update { it.copy(currentProject = proj) }
+                        }
                     }
                 }
-            }
 
-            // Observe tracks
-            launch {
-                repository.getTracks(project.id).collect { tracksList ->
-                    _uiState.update { state ->
-                        val selectedId = if (state.selectedTrackId == null && tracksList.isNotEmpty()) {
-                            tracksList.first().id
-                        } else state.selectedTrackId
-                        state.copy(tracks = tracksList, selectedTrackId = selectedId)
+                // Observe tracks
+                launch {
+                    repository.getTracks(project.id).collect { tracksList ->
+                        _uiState.update { state ->
+                            val selectedId = if (state.selectedTrackId == null && tracksList.isNotEmpty()) {
+                                tracksList.first().id
+                            } else state.selectedTrackId
+                            state.copy(tracks = tracksList, selectedTrackId = selectedId)
+                        }
                     }
                 }
-            }
 
-            // Observe clips
-            launch {
-                repository.getClips(project.id).collect { clipsList ->
-                    _uiState.update { state ->
-                        val selectedClip = if (state.selectedClipId == null && clipsList.isNotEmpty()) {
-                            clipsList.first().id
-                        } else state.selectedClipId
-                        state.copy(clips = clipsList, selectedClipId = selectedClip)
+                // Observe clips
+                launch {
+                    repository.getClips(project.id).collect { clipsList ->
+                        _uiState.update { state ->
+                            val selectedClip = if (state.selectedClipId == null && clipsList.isNotEmpty()) {
+                                clipsList.first().id
+                            } else state.selectedClipId
+                            state.copy(clips = clipsList, selectedClipId = selectedClip)
+                        }
                     }
                 }
-            }
 
-            // Observe collaborators & revisions
-            launch {
-                repository.getCollaborators(project.id).collect { collabList ->
-                    _uiState.update { it.copy(collaborators = collabList) }
+                // Observe collaborators & revisions
+                launch {
+                    repository.getCollaborators(project.id).collect { collabList ->
+                        _uiState.update { it.copy(collaborators = collabList) }
+                    }
                 }
-            }
-            launch {
-                repository.getRevisions(project.id).collect { revList ->
-                    _uiState.update { it.copy(revisions = revList) }
+                launch {
+                    repository.getRevisions(project.id).collect { revList ->
+                        _uiState.update { it.copy(revisions = revList) }
+                    }
                 }
+            } catch (e: Exception) {
+                Log.e("StudioViewModel", "Database initialization failed", e)
             }
         }
     }
@@ -155,6 +159,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             val recorded = midiRecorder.stopRecording()
             commitRecordedNotes(recorded)
         }
+        audioEngine.allNotesOff()
         _uiState.update { it.copy(isPlaying = false, isRecording = false, currentStepIndex = 0) }
     }
 
@@ -250,7 +255,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 val loopEnd = proj.loopEndBeat
 
                 // Trigger notes in this time window
-                triggerNotesForWindow(beat, beat + beatsPerUpdate)
+                triggerNotesForWindow(beat, beat + beatsPerUpdate, beatIntervalMs)
 
                 // Metronome click
                 val currentIntBeat = floor(beat).toInt()
@@ -288,7 +293,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    private fun triggerNotesForWindow(fromBeat: Float, toBeat: Float) {
+    private fun triggerNotesForWindow(fromBeat: Float, toBeat: Float, beatIntervalMs: Float) {
         val state = _uiState.value
         val tracksMap = state.tracks.associateBy { it.id }
         val anySolo = state.tracks.any { it.isSolo }
@@ -304,12 +309,19 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             for (note in notes) {
                 val absoluteNoteStart = clip.startBeat + note.startBeat
                 if (absoluteNoteStart in fromBeat..toBeat) {
+                    val trackId = track.id
+                    val pitch = note.pitch
                     audioEngine.noteOn(
-                        midiNote = note.pitch,
+                        midiNote = pitch,
                         velocity = note.velocity * track.volume,
                         instrument = instType,
-                        trackId = track.id
+                        trackId = trackId
                     )
+                    val noteDurMs = (note.durationBeats * beatIntervalMs * 0.95f).toLong().coerceIn(35L, 8000L)
+                    viewModelScope.launch {
+                        delay(noteDurMs)
+                        audioEngine.noteOff(pitch, trackId)
+                    }
                 }
             }
         }
