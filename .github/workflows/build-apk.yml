@@ -5,7 +5,7 @@ on:
     branches: [ main, master ]
     tags:
       - 'v*'
-  workflow_dispatch: # 支持手动一键触发编译
+  workflow_dispatch:
 
 jobs:
   build:
@@ -21,25 +21,17 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 配置 Gradle 缓存
-        uses: gradle/actions/setup-gradle@v3
-
-      - name: 赋予 gradlew 执行权限
-        run: chmod +x gradlew
+      - name: 自动安装并配置 Gradle
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 8.7
 
       - name: 编译 Debug APK
-        run: ./gradlew assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace
 
-      - name: 上传构建产物 (可在 Actions 页面下载)
+      - name: 上传构建产物
         uses: actions/upload-artifact@v4
+        if: always()
         with:
           name: Harmonia-Studio-X-debug
           path: app/build/outputs/apk/debug/*.apk
-
-      - name: 自动发布到 Releases (仅在打 Tag 时触发)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          files: app/build/outputs/apk/debug/*.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
