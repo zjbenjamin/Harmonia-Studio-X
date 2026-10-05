@@ -1,0 +1,6 @@
+{
+  "name": "Harmonia Studio",
+  "description": "All-in-one music arranger & DAW with multi-instrument synthesis, real-time MIDI recording, step sequencer, and cross-platform project collaboration.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
