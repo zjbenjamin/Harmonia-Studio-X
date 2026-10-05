@@ -147,6 +147,49 @@ enum class InstrumentType(
         description = "Expressive two-string oriental fiddle with delicate sliding vibrato",
         defaultColor = Color(0xFFDC2626)
     ),
+    CHINESE_PIPA(
+        id = "chinese_pipa",
+        displayName = "Chinese Pipa (琵琶)",
+        category = InstrumentCategory.WORLD,
+        description = "Four-string plucked lute with rapid tremolo roll and bright wooden percussive bite",
+        defaultColor = Color(0xFFF97316)
+    ),
+    CHINESE_DIZI(
+        id = "chinese_dizi",
+        displayName = "Chinese Bamboo Flute (竹笛)",
+        category = InstrumentCategory.WORLD,
+        description = "Traditional bamboo transverse flute with buzzing dimo resonance membrane",
+        defaultColor = Color(0xFF10B981)
+    ),
+    CHINESE_YANGQIN(
+        id = "chinese_yangqin",
+        displayName = "Chinese Yangqin (扬琴)",
+        category = InstrumentCategory.WORLD,
+        description = "Hammered dulcimer with bamboo strikers creating shimmering metallic resonance",
+        defaultColor = Color(0xFFF59E0B)
+    ),
+    CHINESE_SUONA(
+        id = "chinese_suona",
+        displayName = "Chinese Suona (唢呐)",
+        category = InstrumentCategory.WORLD,
+        description = "Powerful double-reed brass horn with piercing festive harmonics and soaring timbre",
+        defaultColor = Color(0xFFEA580C)
+    ),
+    CHINESE_GUQIN(
+        id = "chinese_guqin",
+        displayName = "Chinese Guqin (古琴)",
+        category = InstrumentCategory.WORLD,
+        description = "Ancient seven-string meditative zither with deep silk bass resonance and sliding harmonics",
+        defaultColor = Color(0xFF92400E)
+    ),
+    CHINESE_BIANZHONG(
+        id = "chinese_bianzhong",
+        displayName = "Chinese Bianzhong Chimes (编钟)",
+        category = InstrumentCategory.WORLD,
+        description = "Imperial bronze struck chimes with crystalline two-tone overtones and long decay",
+        defaultColor = Color(0xFFD97706),
+        isPercussion = true
+    ),
     MARIMBA(
         id = "marimba",
         displayName = "Mallet Marimba",

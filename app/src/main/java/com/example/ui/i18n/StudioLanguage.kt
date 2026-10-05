@@ -50,7 +50,7 @@ data class StudioStrings(
     val applyChordsToTrack: String,
     val audition: String,
 
-    // Beat Sequencer
+    // Beat Sequencer & Synth Matrix
     val beatSequencerTitle: String,
     val presets: String,
     val clear: String,
@@ -59,6 +59,12 @@ data class StudioStrings(
     val stepVelocityTitle: String,
     val selectPresetGroove: String,
     val done: String,
+    val tabSynthTracks: String,
+    val tabDrumTracks: String,
+    val tabAllTracks: String,
+    val addSynthTrack: String,
+    val pitchSelectTitle: String,
+    val stepPlayhead: String,
 
     // Controller
     val modeKeys: String,
@@ -148,14 +154,20 @@ object StudioI18n {
         applyChordsToTrack = "将和弦进行应用至当前轨道",
         audition = "试听",
 
-        beatSequencerTitle = "高级 16 步节奏音序器",
+        beatSequencerTitle = "高级 16 步节奏音序器与合成器矩阵",
         presets = "经典预设",
         clear = "清空",
         swingGroove = "摇摆律动 (Swing)",
-        applyBeatsToTimeline = "将鼓组律动应用至时间轴",
+        applyBeatsToTimeline = "将步进律动应用至时间轴",
         stepVelocityTitle = "步进力度调节",
         selectPresetGroove = "选择律动风格预设",
         done = "完成",
+        tabSynthTracks = "合成器音轨",
+        tabDrumTracks = "打击乐鼓组",
+        tabAllTracks = "全部轨道",
+        addSynthTrack = "+ 添加合成器音轨",
+        pitchSelectTitle = "设置合成器音高",
+        stepPlayhead = "播放指针",
 
         modeKeys = "琴键键盘",
         modeDrumPads = "16格打击垫",
@@ -239,14 +251,20 @@ object StudioI18n {
         applyChordsToTrack = "Apply Progression to Track",
         audition = "Audition",
 
-        beatSequencerTitle = "Advanced 16-Step Beat Sequencer",
+        beatSequencerTitle = "Advanced 16-Step Sequencer & Synth Matrix",
         presets = "Presets",
         clear = "Clear",
         swingGroove = "Swing & Groove",
-        applyBeatsToTimeline = "Apply Drum Pattern to Timeline",
+        applyBeatsToTimeline = "Apply Pattern to Timeline",
         stepVelocityTitle = "Step Velocity Accent",
         selectPresetGroove = "Select Groove Preset",
         done = "Done",
+        tabSynthTracks = "Synth Tracks",
+        tabDrumTracks = "Drum Kit",
+        tabAllTracks = "All Tracks",
+        addSynthTrack = "+ Add Synth Track",
+        pitchSelectTitle = "Set Synth Pitch",
+        stepPlayhead = "Playhead",
 
         modeKeys = "Keys",
         modeDrumPads = "16 Drum Pads",

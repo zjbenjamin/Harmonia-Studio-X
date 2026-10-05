@@ -169,6 +169,61 @@ data class InstrumentPatch(
                     chorusAmount = 0.25f,
                     reverbSend = 0.35f
                 )
+                InstrumentType.CHINESE_PIPA -> InstrumentPatch(
+                    instrumentType = type,
+                    attackMs = 3f,
+                    decayMs = 450f,
+                    sustainLevel = 0.2f,
+                    releaseMs = 280f,
+                    filterCutoff = 8500f,
+                    reverbSend = 0.35f
+                )
+                InstrumentType.CHINESE_DIZI -> InstrumentPatch(
+                    instrumentType = type,
+                    attackMs = 35f,
+                    decayMs = 150f,
+                    sustainLevel = 0.92f,
+                    releaseMs = 220f,
+                    filterCutoff = 7200f,
+                    reverbSend = 0.45f
+                )
+                InstrumentType.CHINESE_YANGQIN -> InstrumentPatch(
+                    instrumentType = type,
+                    attackMs = 2f,
+                    decayMs = 600f,
+                    sustainLevel = 0.25f,
+                    releaseMs = 400f,
+                    filterCutoff = 9000f,
+                    reverbSend = 0.4f
+                )
+                InstrumentType.CHINESE_SUONA -> InstrumentPatch(
+                    instrumentType = type,
+                    attackMs = 20f,
+                    decayMs = 120f,
+                    sustainLevel = 0.95f,
+                    releaseMs = 180f,
+                    filterCutoff = 9500f,
+                    drive = 0.1f
+                )
+                InstrumentType.CHINESE_GUQIN -> InstrumentPatch(
+                    instrumentType = type,
+                    attackMs = 6f,
+                    decayMs = 900f,
+                    sustainLevel = 0.3f,
+                    releaseMs = 600f,
+                    octaveTranspose = -1,
+                    filterCutoff = 4500f,
+                    reverbSend = 0.5f
+                )
+                InstrumentType.CHINESE_BIANZHONG -> InstrumentPatch(
+                    instrumentType = type,
+                    attackMs = 2f,
+                    decayMs = 1200f,
+                    sustainLevel = 0.1f,
+                    releaseMs = 1000f,
+                    filterCutoff = 11000f,
+                    reverbSend = 0.6f
+                )
                 InstrumentType.MARIMBA -> InstrumentPatch(
                     instrumentType = type,
                     attackMs = 2f,

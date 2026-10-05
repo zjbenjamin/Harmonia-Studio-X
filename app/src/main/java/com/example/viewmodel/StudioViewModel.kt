@@ -243,6 +243,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
             var beat = _uiState.value.currentBeat
             var prevIntegerBeat = floor(beat).toInt()
+            var prevStepIdx = -1
 
             while (isActive) {
                 val loopStart = proj.loopStartBeat
@@ -261,8 +262,13 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                     }
                 }
 
-                // Update UI state
+                // Update UI state & step sequencer playback
                 val stepIdx = ((beat % 4.0f) * 4).toInt().coerceIn(0, 15)
+                if (stepIdx != prevStepIdx) {
+                    prevStepIdx = stepIdx
+                    triggerSequencerStep(stepIdx, beatIntervalMs)
+                }
+
                 _uiState.update { it.copy(currentBeat = beat, currentStepIndex = stepIdx) }
 
                 beat += beatsPerUpdate
@@ -487,20 +493,138 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         }
     }
 
-    // --- Advanced Beat Sequencer ---
+    // --- Advanced Step Sequencer & Synth Matrix ---
+
+    private fun triggerSequencerStep(stepIdx: Int, beatIntervalMs: Float) {
+        val pattern = _uiState.value.currentBeatPattern
+        val anySolo = pattern.lanes.any { it.isSolo }
+        val stepDurationMs = (beatIntervalMs / 4.0f * 0.85f).toLong().coerceIn(35L, 450L)
+
+        for (lane in pattern.lanes) {
+            if (lane.isMuted) continue
+            if (anySolo && !lane.isSolo) continue
+            val step = lane.steps.getOrNull(stepIdx) ?: continue
+            if (!step.active) continue
+
+            if (lane.instrumentType == InstrumentType.DRUM_KIT) {
+                audioEngine.playDrum(lane.midiNote, step.velocity)
+            } else {
+                val trackId = lane.id.hashCode().toLong()
+                audioEngine.noteOn(lane.midiNote, step.velocity, lane.instrumentType, trackId)
+                viewModelScope.launch {
+                    delay(stepDurationMs)
+                    audioEngine.noteOff(lane.midiNote, trackId)
+                }
+            }
+        }
+    }
 
     fun toggleStep(laneId: String, stepIndex: Int) {
+        var toggledOn = false
+        var lanePitch = 60
+        var laneInst = InstrumentType.DRUM_KIT
+
         _uiState.update { state ->
             val updatedLanes = state.currentBeatPattern.lanes.map { lane ->
                 if (lane.id == laneId) {
+                    lanePitch = lane.midiNote
+                    laneInst = lane.instrumentType
                     val updatedSteps = lane.steps.mapIndexed { idx, step ->
-                        if (idx == stepIndex) step.copy(active = !step.active) else step
+                        if (idx == stepIndex) {
+                            val newActive = !step.active
+                            if (newActive) toggledOn = true
+                            step.copy(active = newActive)
+                        } else step
                     }
                     lane.copy(steps = updatedSteps)
                 } else lane
             }
             val updatedPattern = state.currentBeatPattern.copy(lanes = updatedLanes)
             state.copy(currentBeatPattern = updatedPattern)
+        }
+
+        // Audition note when toggling ON
+        if (toggledOn) {
+            if (laneInst == InstrumentType.DRUM_KIT) {
+                audioEngine.playDrum(lanePitch, 0.9f)
+            } else {
+                audioEngine.noteOn(lanePitch, 0.85f, laneInst, laneId.hashCode().toLong())
+                viewModelScope.launch {
+                    delay(200L)
+                    audioEngine.noteOff(lanePitch, laneId.hashCode().toLong())
+                }
+            }
+        }
+    }
+
+    fun auditionLane(laneId: String) {
+        val lane = _uiState.value.currentBeatPattern.lanes.firstOrNull { it.id == laneId } ?: return
+        if (lane.instrumentType == InstrumentType.DRUM_KIT) {
+            audioEngine.playDrum(lane.midiNote, 0.95f)
+        } else {
+            audioEngine.noteOn(lane.midiNote, 0.9f, lane.instrumentType, lane.id.hashCode().toLong())
+            viewModelScope.launch {
+                delay(260L)
+                audioEngine.noteOff(lane.midiNote, lane.id.hashCode().toLong())
+            }
+        }
+    }
+
+    fun setLanePitch(laneId: String, newMidiNote: Int, newNoteName: String) {
+        _uiState.update { state ->
+            val updatedLanes = state.currentBeatPattern.lanes.map { lane ->
+                if (lane.id == laneId) {
+                    lane.copy(midiNote = newMidiNote, noteName = newNoteName)
+                } else lane
+            }
+            state.copy(currentBeatPattern = state.currentBeatPattern.copy(lanes = updatedLanes))
+        }
+        auditionLane(laneId)
+    }
+
+    fun toggleLaneMute(laneId: String) {
+        _uiState.update { state ->
+            val updatedLanes = state.currentBeatPattern.lanes.map { lane ->
+                if (lane.id == laneId) lane.copy(isMuted = !lane.isMuted) else lane
+            }
+            state.copy(currentBeatPattern = state.currentBeatPattern.copy(lanes = updatedLanes))
+        }
+    }
+
+    fun toggleLaneSolo(laneId: String) {
+        _uiState.update { state ->
+            val updatedLanes = state.currentBeatPattern.lanes.map { lane ->
+                if (lane.id == laneId) lane.copy(isSolo = !lane.isSolo) else lane
+            }
+            state.copy(currentBeatPattern = state.currentBeatPattern.copy(lanes = updatedLanes))
+        }
+    }
+
+    fun addSynthLane(instrumentType: InstrumentType, pitch: Int, name: String, colorHex: Long) {
+        val noteNames = arrayOf("C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B")
+        val oct = (pitch / 12) - 1
+        val noteStr = "${noteNames[(pitch % 12 + 12) % 12]}$oct"
+
+        _uiState.update { state ->
+            val newLane = com.example.midi.DrumLane(
+                id = "synth_${System.currentTimeMillis()}",
+                name = name,
+                midiNote = pitch,
+                noteName = noteStr,
+                color = androidx.compose.ui.graphics.Color(colorHex),
+                instrumentType = instrumentType,
+                steps = List(state.currentBeatPattern.stepCount) { com.example.midi.DrumStep(active = false) }
+            )
+            val updatedLanes = state.currentBeatPattern.lanes + newLane
+            state.copy(currentBeatPattern = state.currentBeatPattern.copy(lanes = updatedLanes))
+        }
+        showToast("Added synth track: $name ($noteStr)")
+    }
+
+    fun removeLane(laneId: String) {
+        _uiState.update { state ->
+            val updatedLanes = state.currentBeatPattern.lanes.filterNot { it.id == laneId }
+            state.copy(currentBeatPattern = state.currentBeatPattern.copy(lanes = updatedLanes))
         }
     }
 
@@ -526,6 +650,7 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     fun loadPresetBeat(preset: BeatPattern) {
         _uiState.update { it.copy(currentBeatPattern = preset) }
+        showToast("Loaded preset: ${preset.name}")
     }
 
     fun clearSequencer() {
@@ -533,42 +658,80 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
             val emptyLanes = BeatSequencerDefaults.createEmptyLanes(state.currentBeatPattern.stepCount)
             state.copy(currentBeatPattern = state.currentBeatPattern.copy(lanes = emptyLanes))
         }
+        showToast("Sequencer grid cleared")
     }
 
     fun insertBeatPatternToTimeline() {
         val state = _uiState.value
         val projId = state.currentProject?.id ?: return
-        // Find drum track or create one
-        var drumTrack = state.tracks.firstOrNull {
-            val inst = InstrumentType.fromId(it.instrumentType)
-            inst == InstrumentType.DRUM_KIT || inst.isPercussion
-        }
 
         viewModelScope.launch {
-            val drumTrackId = drumTrack?.id ?: repository.addTrack(
-                projectId = projId,
-                name = "Drum Machine",
-                instrumentType = InstrumentType.DRUM_KIT,
-                colorHex = 0xFFEF4444
-            )
-
-            val notes = BeatSequencerDefaults.patternToMidiNotes(
+            // 1. Separate drums and synths
+            val drumNotes = BeatSequencerDefaults.patternToMidiNotes(
                 pattern = state.currentBeatPattern,
                 startBeat = 0f,
-                totalBars = 4
+                totalBars = 4,
+                onlyDrums = true
             )
 
-            val existingClip = state.clips.firstOrNull { it.trackId == drumTrackId }
-            repository.saveClipNotes(
-                clipId = existingClip?.id ?: 0L,
-                trackId = drumTrackId,
-                projectId = projId,
-                name = state.currentBeatPattern.name,
-                startBeat = 0f,
-                durationBeats = 16f,
-                notes = notes
-            )
-            showToast("Drum groove applied to timeline (${notes.size} hits)")
+            if (drumNotes.isNotEmpty()) {
+                var drumTrack = state.tracks.firstOrNull {
+                    val inst = InstrumentType.fromId(it.instrumentType)
+                    inst == InstrumentType.DRUM_KIT || inst.isPercussion
+                }
+                val drumTrackId = drumTrack?.id ?: repository.addTrack(
+                    projectId = projId,
+                    name = "Drum Machine",
+                    instrumentType = InstrumentType.DRUM_KIT,
+                    colorHex = 0xFFEF4444
+                )
+                val existingClip = state.clips.firstOrNull { it.trackId == drumTrackId }
+                repository.saveClipNotes(
+                    clipId = existingClip?.id ?: 0L,
+                    trackId = drumTrackId,
+                    projectId = projId,
+                    name = "${state.currentBeatPattern.name} (Drums)",
+                    startBeat = 0f,
+                    durationBeats = 16f,
+                    notes = drumNotes
+                )
+            }
+
+            // 2. Commit each synth track that has active steps
+            val synthLanes = state.currentBeatPattern.lanes.filter { it.isSynth && it.steps.any { s -> s.active } }
+            for (lane in synthLanes) {
+                val singleLanePattern = state.currentBeatPattern.copy(lanes = listOf(lane))
+                val synthNotes = BeatSequencerDefaults.patternToMidiNotes(
+                    pattern = singleLanePattern,
+                    startBeat = 0f,
+                    totalBars = 4,
+                    onlySynths = true
+                )
+                if (synthNotes.isNotEmpty()) {
+                    var synthTrack = state.tracks.firstOrNull {
+                        val inst = InstrumentType.fromId(it.instrumentType)
+                        inst == lane.instrumentType
+                    }
+                    val targetTrackId = synthTrack?.id ?: repository.addTrack(
+                        projectId = projId,
+                        name = lane.name,
+                        instrumentType = lane.instrumentType,
+                        colorHex = lane.color.value.toLong()
+                    )
+                    val existingClip = state.clips.firstOrNull { it.trackId == targetTrackId }
+                    repository.saveClipNotes(
+                        clipId = existingClip?.id ?: 0L,
+                        trackId = targetTrackId,
+                        projectId = projId,
+                        name = "${lane.name} (Rhythm)",
+                        startBeat = 0f,
+                        durationBeats = 16f,
+                        notes = synthNotes
+                    )
+                }
+            }
+
+            showToast("Pattern applied to timeline (Drums & Synth Tracks)")
         }
     }
 
@@ -583,8 +746,78 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
                 instrumentType = instrument,
                 colorHex = instrument.defaultColor.value.toLong()
             )
+            // Automatically add an initial empty 16-beat clip so the track is immediately visible with clips on the timeline
+            repository.saveClipNotes(
+                clipId = 0L,
+                trackId = trackId,
+                projectId = projId,
+                name = "$name Pattern 1",
+                startBeat = 0f,
+                durationBeats = 16f,
+                notes = emptyList()
+            )
             selectTrack(trackId)
-            showToast("Added $name track")
+            showToast("已创建并添加 $name 音轨")
+        }
+    }
+
+    fun addNewTrackWithNotes(name: String, instrument: InstrumentType, notes: List<MidiNote>) {
+        val projId = _uiState.value.currentProject?.id ?: return
+        viewModelScope.launch {
+            val trackId = repository.addTrack(
+                projectId = projId,
+                name = name,
+                instrumentType = instrument,
+                colorHex = instrument.defaultColor.value.toLong()
+            )
+            val durationBeats = (notes.maxOfOrNull { it.startBeat + it.durationBeats } ?: 16f).coerceAtLeast(16f)
+            repository.saveClipNotes(
+                clipId = 0L,
+                trackId = trackId,
+                projectId = projId,
+                name = "$name Take",
+                startBeat = 0f,
+                durationBeats = durationBeats,
+                notes = notes
+            )
+            selectTrack(trackId)
+            showToast("已将 $name (${notes.size} 音符) 添加至时间轴")
+        }
+    }
+
+    fun createAudioRecordingTrack(name: String, audioFile: java.io.File, durationSeconds: Float) {
+        val projId = _uiState.value.currentProject?.id ?: return
+        val bpm = _uiState.value.currentProject?.bpm ?: 120
+        val durationBeats = (durationSeconds / 60.0f * bpm).coerceAtLeast(4f)
+
+        viewModelScope.launch {
+            val trackId = repository.addTrack(
+                projectId = projId,
+                name = name,
+                instrumentType = InstrumentType.FLUTE, // Audio vocal/mic instrument representation
+                colorHex = 0xFFEF4444
+            )
+            // Create a waveform representation clip
+            val noteCount = (durationBeats * 2).toInt().coerceAtLeast(4)
+            val sampleNotes = List(noteCount) { i ->
+                MidiNote(
+                    pitch = 60 + (i % 5),
+                    startBeat = i * 0.5f,
+                    durationBeats = 0.5f,
+                    velocity = 0.8f
+                )
+            }
+            repository.saveClipNotes(
+                clipId = 0L,
+                trackId = trackId,
+                projectId = projId,
+                name = "${audioFile.nameWithoutExtension} (Audio)",
+                startBeat = 0f,
+                durationBeats = durationBeats,
+                notes = sampleNotes
+            )
+            selectTrack(trackId)
+            showToast("录音已创建为新音轨: $name")
         }
     }
 

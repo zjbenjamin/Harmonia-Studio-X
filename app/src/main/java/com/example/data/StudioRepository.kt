@@ -284,7 +284,7 @@ class StudioRepository(private val dao: StudioDao) {
             )
         )
         val drumPattern = BeatSequencerDefaults.getPresetPatterns()[0] // House 4-on-floor
-        val drumNotes = BeatSequencerDefaults.patternToMidiNotes(drumPattern, 0f, 4) // 4 bars = 16 beats
+        val drumNotes = BeatSequencerDefaults.patternToMidiNotes(drumPattern, 0f, 4, onlyDrums = true) // 4 bars = 16 beats
         dao.insertClip(
             MidiClipEntity(
                 trackId = drumTrackId,

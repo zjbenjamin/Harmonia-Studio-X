@@ -232,7 +232,10 @@ class AudioEngine {
         private val karplusBuffer: FloatArray? = if (
             instrument == InstrumentType.ACOUSTIC_GUITAR ||
             instrument == InstrumentType.CELTIC_HARP ||
-            instrument == InstrumentType.CHINESE_GUZHENG
+            instrument == InstrumentType.CHINESE_GUZHENG ||
+            instrument == InstrumentType.CHINESE_PIPA ||
+            instrument == InstrumentType.CHINESE_YANGQIN ||
+            instrument == InstrumentType.CHINESE_GUQIN
         ) {
             val period = (SAMPLE_RATE / frequency).toInt().coerceIn(10, 2048)
             FloatArray(period) { (Random.nextFloat() * 2f - 1f) }
@@ -374,6 +377,71 @@ class AudioEngine {
                     val s2 = sin(p * 2.0) * 0.35
                     val s3 = sin(p * 3.0) * 0.2
                     (s1 + s2 + s3) * 0.65
+                }
+                InstrumentType.CHINESE_PIPA -> {
+                    // Four-string plucked lute with rapid tremolo roll and bright bite
+                    val t = currentSample.toDouble() / SAMPLE_RATE
+                    val tremolo = sin(2.0 * PI * 13.0 * t) * 0.15
+                    if (karplusBuffer != null) {
+                        val currentVal = karplusBuffer[karplusIndex]
+                        val nextIdx = (karplusIndex + 1) % karplusBuffer.size
+                        val filtered = (currentVal + karplusBuffer[nextIdx]) * 0.493f
+                        karplusBuffer[karplusIndex] = filtered
+                        karplusIndex = nextIdx
+                        (currentVal.toDouble() * (1.0 + tremolo) + sin(phase * 2.0) * 0.2) * 0.8
+                    } else sin(phase) * 0.7
+                }
+                InstrumentType.CHINESE_DIZI -> {
+                    // Bamboo flute with buzzing dimo (笛膜) resonance and breath noise
+                    val t = currentSample.toDouble() / SAMPLE_RATE
+                    val vibrato = sin(2.0 * PI * 5.8 * t) * 0.02
+                    val dimoBuzz = sin(phase * 3.0) * 0.25 * sin(phase * 5.0)
+                    val breath = (Random.nextDouble() * 2.0 - 1.0) * 0.04
+                    (sin(phase * (1.0 + vibrato)) * 0.65 + dimoBuzz + breath) * 0.75
+                }
+                InstrumentType.CHINESE_YANGQIN -> {
+                    // Hammered dulcimer: dual-strike attack and metallic resonance
+                    val t = currentSample.toDouble() / SAMPLE_RATE
+                    val strike = if (t < 0.012) sin(phase * 4.0) * 0.4 else 0.0
+                    if (karplusBuffer != null) {
+                        val currentVal = karplusBuffer[karplusIndex]
+                        val nextIdx = (karplusIndex + 1) % karplusBuffer.size
+                        val filtered = (currentVal + karplusBuffer[nextIdx]) * 0.496f
+                        karplusBuffer[karplusIndex] = filtered
+                        karplusIndex = nextIdx
+                        (currentVal.toDouble() + strike + sin(phase * 3.0) * 0.15) * 0.75
+                    } else sin(phase) * 0.7
+                }
+                InstrumentType.CHINESE_SUONA -> {
+                    // Double-reed brass horn with piercing festive harmonics
+                    val s1 = sin(phase) * 0.55
+                    val s2 = sin(phase * 3.0) * 0.35
+                    val s3 = sin(phase * 5.0) * 0.22
+                    val s4 = sin(phase * 7.0) * 0.14
+                    val squelch = if (sin(phase) > 0) 0.1 else -0.1
+                    (s1 + s2 + s3 + s4 + squelch) * 0.75
+                }
+                InstrumentType.CHINESE_GUQIN -> {
+                    // Seven-string silk zither: deep resonant fundamental and slow decay
+                    val t = currentSample.toDouble() / SAMPLE_RATE
+                    val slide = sin(2.0 * PI * 2.5 * t) * 0.015
+                    if (karplusBuffer != null) {
+                        val currentVal = karplusBuffer[karplusIndex]
+                        val nextIdx = (karplusIndex + 1) % karplusBuffer.size
+                        val filtered = (currentVal + karplusBuffer[nextIdx]) * 0.498f
+                        karplusBuffer[karplusIndex] = filtered
+                        karplusIndex = nextIdx
+                        (currentVal.toDouble() + sin(phase * (1.0 + slide) * 0.5) * 0.25) * 0.75
+                    } else sin(phase) * 0.7
+                }
+                InstrumentType.CHINESE_BIANZHONG -> {
+                    // Imperial bronze chimes: two-tone strike harmonics and long decay
+                    val t = currentSample.toDouble() / SAMPLE_RATE
+                    val b1 = sin(phase) * exp(-1.5 * t)
+                    val b2 = sin(phase * 1.54) * 0.6 * exp(-2.2 * t)
+                    val b3 = sin(phase * 2.76) * 0.35 * exp(-3.8 * t)
+                    val b4 = sin(phase * 4.12) * 0.18 * exp(-6.0 * t)
+                    (b1 + b2 + b3 + b4) * 0.75
                 }
                 InstrumentType.ORCHESTRAL_STRINGS -> {
                     // Detuned lush ensemble

@@ -1,12 +1,14 @@
 package com.example.ui.views
 
 import android.view.MotionEvent
-import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -17,8 +19,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.pointerInteropFilter
@@ -28,6 +28,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.audio.InstrumentType
 import com.example.midi.MusicalScale
+import com.example.ui.i18n.StudioI18n
 import com.example.ui.theme.*
 import com.example.viewmodel.StudioUiState
 import com.example.viewmodel.StudioViewModel
@@ -43,10 +44,10 @@ fun VirtualControllerView(
     viewModel: StudioViewModel,
     modifier: Modifier = Modifier
 ) {
+    val strings = StudioI18n.getStrings(state.language)
     var mode by remember { mutableStateOf(ControllerMode.PIANO) }
     var currentOctave by remember { mutableIntStateOf(4) } // C4 default
     var isSustainOn by remember { mutableStateOf(false) }
-    var scaleLock by remember { mutableStateOf<MusicalScale?>(null) }
 
     val activeTrack = state.tracks.firstOrNull { it.id == state.selectedTrackId }
     val instrument = if (activeTrack != null) InstrumentType.fromId(activeTrack.instrumentType) else InstrumentType.GRAND_PIANO
@@ -78,14 +79,14 @@ fun VirtualControllerView(
                         onClick = { mode = ControllerMode.PIANO },
                         shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2)
                     ) {
-                        Text("Keys", fontSize = 11.sp)
+                        Text(strings.modeKeys, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                     SegmentedButton(
                         selected = mode == ControllerMode.DRUM_PADS,
                         onClick = { mode = ControllerMode.DRUM_PADS },
                         shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2)
                     ) {
-                        Text("16 Drum Pads", fontSize = 11.sp)
+                        Text(strings.modeDrumPads, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     }
                 }
 
@@ -95,7 +96,7 @@ fun VirtualControllerView(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Text("Octave", fontSize = 10.sp, color = TextMuted)
+                        Text(strings.octave, fontSize = 10.sp, color = TextMuted)
                         FilledTonalIconButton(
                             onClick = { if (currentOctave > 1) currentOctave-- },
                             modifier = Modifier.size(30.dp)
@@ -115,7 +116,7 @@ fun VirtualControllerView(
                     FilterChip(
                         selected = isSustainOn,
                         onClick = { isSustainOn = !isSustainOn },
-                        label = { Text("Sustain", fontSize = 10.sp) },
+                        label = { Text(strings.sustain, fontSize = 10.sp) },
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = StudioAmber,
                             selectedLabelColor = StudioDarkBg
@@ -125,33 +126,76 @@ fun VirtualControllerView(
             }
         }
 
-        // Active Instrument indicator
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
+        // Active Instrument & Quick Traditional Chinese Instrument Selector Row
+        Surface(
+            color = StudioSurfaceElevated,
+            shape = RoundedCornerShape(8.dp),
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Box(
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("音色切换: ", fontSize = 11.sp, color = TextSecondary, fontWeight = FontWeight.Bold)
+                Row(
                     modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(instrument.defaultColor)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "Track: ${activeTrack?.name ?: "Master"} (${instrument.displayName})",
-                    color = TextSecondary,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            if (state.isRecording) {
-                Text("● REC LIVE MIDI", color = StudioRedRecord, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    val quickInstruments = listOf(
+                        InstrumentType.GRAND_PIANO to "大钢琴",
+                        InstrumentType.CHINESE_GUZHENG to "古筝",
+                        InstrumentType.CHINESE_PIPA to "琵琶",
+                        InstrumentType.CHINESE_DIZI to "竹笛",
+                        InstrumentType.CHINESE_YANGQIN to "扬琴",
+                        InstrumentType.CHINESE_SUONA to "唢呐",
+                        InstrumentType.CHINESE_GUQIN to "古琴",
+                        InstrumentType.CHINESE_BIANZHONG to "编钟",
+                        InstrumentType.ERHU to "二胡",
+                        InstrumentType.SYNTH_POLY_KEYS to "合成器"
+                    )
+
+                    quickInstruments.forEach { (inst, label) ->
+                        val isCurrent = instrument == inst
+                        Surface(
+                            color = if (isCurrent) inst.defaultColor else StudioDarkBg,
+                            shape = RoundedCornerShape(6.dp),
+                            border = androidx.compose.foundation.BorderStroke(
+                                1.dp,
+                                if (isCurrent) Color.White else inst.defaultColor.copy(alpha = 0.4f)
+                            ),
+                            modifier = Modifier.clickable {
+                                val trackId = activeTrack?.id
+                                if (trackId != null) {
+                                    viewModel.assignInstrumentToTrack(trackId, inst)
+                                } else {
+                                    viewModel.addNewTrack(inst.displayName, inst)
+                                }
+                            }
+                        ) {
+                            Text(
+                                text = label,
+                                fontSize = 10.sp,
+                                fontWeight = if (isCurrent) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isCurrent) StudioDarkBg else TextPrimary,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                            )
+                        }
+                    }
+                }
+
+                if (state.isRecording) {
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(strings.recLiveMidi, color = StudioRedRecord, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
-        // Main Controller Area
+        // Main Controller Area: Ultra-Smooth Glissando Multi-Touch Piano Keyboard or 16 Drum Pads
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -161,6 +205,7 @@ fun VirtualControllerView(
                 PianoKeyboardControl(
                     baseOctave = currentOctave,
                     isSustain = isSustainOn,
+                    activeInstrument = instrument,
                     onNoteDown = { pitch -> viewModel.onLiveNoteDown(pitch) },
                     onNoteUp = { pitch -> if (!isSustainOn) viewModel.onLiveNoteUp(pitch) }
                 )
@@ -173,21 +218,41 @@ fun VirtualControllerView(
     }
 }
 
+/**
+ * High-performance, ultra-smooth Multi-Touch Piano Keyboard with instant sliding / glissando tracking.
+ * Maps coordinates across all active touch fingers to ensure zero missed notes during fast playing.
+ */
 @OptIn(ExperimentalComposeUiApi::class)
 @Composable
 private fun PianoKeyboardControl(
     baseOctave: Int,
     isSustain: Boolean,
+    activeInstrument: InstrumentType,
     onNoteDown: (Int) -> Unit,
     onNoteUp: (Int) -> Unit
 ) {
-    // Render 14 white keys spanning 2 octaves (e.g. C4 to B5)
-    val startNote = (baseOctave + 1) * 12 // e.g. 60 for C4
+    // 14 white keys spanning 2 full octaves (e.g. C4 to B5)
+    val startNote = (baseOctave + 1) * 12
     val whiteKeyOffsets = listOf(0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23)
     val whiteKeyNames = listOf("C", "D", "E", "F", "G", "A", "B", "C", "D", "E", "F", "G", "A", "B")
 
-    // Active pressed keys tracking
+    val blackKeyOffsets = listOf(
+        0 to 1,   // C#
+        1 to 3,   // D#
+        3 to 6,   // F#
+        4 to 8,   // G#
+        5 to 10,  // A#
+        7 to 13,  // C#
+        8 to 15,  // D#
+        10 to 18, // F#
+        11 to 20, // G#
+        12 to 22  // A#
+    )
+
+    // Set of active pressed keys for real-time visual illumination
     val pressedKeys = remember { mutableStateListOf<Int>() }
+    // Pointer ID to current sounding pitch mapping for smooth glissando/sliding
+    val pointerToKeyMap = remember { mutableMapOf<Int, Int>() }
 
     BoxWithConstraints(
         modifier = Modifier
@@ -198,96 +263,147 @@ private fun PianoKeyboardControl(
     ) {
         val totalWhiteKeys = whiteKeyOffsets.size
         val whiteKeyWidth = maxWidth / totalWhiteKeys
-
-        // 1. White Keys Row
-        Row(modifier = Modifier.fillMaxSize()) {
-            for (i in 0 until totalWhiteKeys) {
-                val pitch = startNote + whiteKeyOffsets[i]
-                val isPressed = pitch in pressedKeys
-
-                Box(
-                    modifier = Modifier
-                        .width(whiteKeyWidth)
-                        .fillMaxHeight()
-                        .padding(horizontal = 0.5.dp)
-                        .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
-                        .background(if (isPressed) StudioCyan else Color.White)
-                        .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
-                        .pointerInteropFilter { motionEvent ->
-                            when (motionEvent.action) {
-                                MotionEvent.ACTION_DOWN -> {
-                                    if (pitch !in pressedKeys) pressedKeys.add(pitch)
-                                    onNoteDown(pitch)
-                                    true
-                                }
-                                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                    pressedKeys.remove(pitch)
-                                    onNoteUp(pitch)
-                                    true
-                                }
-                                else -> false
-                            }
-                        }
-                        .testTag("key_white_$pitch"),
-                    contentAlignment = Alignment.BottomCenter
-                ) {
-                    Text(
-                        text = whiteKeyNames[i],
-                        color = if (isPressed) StudioDarkBg else Color(0xFF64748B),
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(bottom = 8.dp)
-                    )
-                }
-            }
-        }
-
-        // 2. Black Keys Layer
-        val blackKeyOffsets = listOf(
-            0 to 1,   // C#
-            1 to 3,   // D#
-            3 to 6,   // F#
-            4 to 8,   // G#
-            5 to 10,  // A#
-            7 to 13,  // C# (next octave)
-            8 to 15,  // D#
-            10 to 18, // F#
-            11 to 20, // G#
-            12 to 22  // A#
-        )
         val blackKeyWidth = whiteKeyWidth * 0.65f
         val blackKeyHeight = maxHeight * 0.60f
 
-        for ((whiteIndex, semitone) in blackKeyOffsets) {
-            val pitch = startNote + semitone
-            val isPressed = pitch in pressedKeys
-            val leftOffset = (whiteKeyWidth * (whiteIndex + 1)) - (blackKeyWidth / 2)
+        val whiteKeyWidthPx = constraints.maxWidth.toFloat() / totalWhiteKeys
+        val blackKeyWidthPx = whiteKeyWidthPx * 0.65f
+        val blackKeyHeightPx = constraints.maxHeight.toFloat() * 0.60f
 
-            Box(
-                modifier = Modifier
-                    .offset(x = leftOffset)
-                    .width(blackKeyWidth)
-                    .height(blackKeyHeight)
-                    .clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
-                    .background(if (isPressed) StudioViolet else Color(0xFF1E293B))
-                    .border(1.dp, Color.Black, RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
-                    .pointerInteropFilter { motionEvent ->
-                        when (motionEvent.action) {
-                            MotionEvent.ACTION_DOWN -> {
-                                if (pitch !in pressedKeys) pressedKeys.add(pitch)
-                                onNoteDown(pitch)
-                                true
-                            }
-                            MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                                pressedKeys.remove(pitch)
-                                onNoteUp(pitch)
-                                true
-                            }
-                            else -> false
-                        }
+        fun findPitchAt(px: Float, py: Float): Int? {
+            // Check black keys first if in upper 60%
+            if (py in 0f..blackKeyHeightPx) {
+                for ((whiteIndex, semitone) in blackKeyOffsets) {
+                    val left = (whiteKeyWidthPx * (whiteIndex + 1)) - (blackKeyWidthPx / 2f)
+                    val right = left + blackKeyWidthPx
+                    if (px in left..right) {
+                        return startNote + semitone
                     }
-                    .testTag("key_black_$pitch")
-            )
+                }
+            }
+            // Check white keys
+            val wIdx = (px / whiteKeyWidthPx).toInt()
+            if (wIdx in 0 until totalWhiteKeys) {
+                return startNote + whiteKeyOffsets[wIdx]
+            }
+            return null
+        }
+
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .pointerInteropFilter { motionEvent ->
+                    val action = motionEvent.actionMasked
+                    val actionIndex = motionEvent.actionIndex
+
+                    when (action) {
+                        MotionEvent.ACTION_DOWN, MotionEvent.ACTION_POINTER_DOWN -> {
+                            val pid = motionEvent.getPointerId(actionIndex)
+                            val px = motionEvent.getX(actionIndex)
+                            val py = motionEvent.getY(actionIndex)
+                            val pitch = findPitchAt(px, py)
+                            if (pitch != null) {
+                                pointerToKeyMap[pid] = pitch
+                                if (pitch !in pressedKeys) {
+                                    pressedKeys.add(pitch)
+                                }
+                                onNoteDown(pitch)
+                            }
+                            true
+                        }
+                        MotionEvent.ACTION_MOVE -> {
+                            // Multi-touch smooth gliding / glissando
+                            for (p in 0 until motionEvent.pointerCount) {
+                                val pid = motionEvent.getPointerId(p)
+                                val px = motionEvent.getX(p)
+                                val py = motionEvent.getY(p)
+                                val newPitch = findPitchAt(px, py)
+                                val oldPitch = pointerToKeyMap[pid]
+
+                                if (newPitch != null && newPitch != oldPitch) {
+                                    if (oldPitch != null) {
+                                        if (pointerToKeyMap.values.count { it == oldPitch } <= 1) {
+                                            pressedKeys.remove(oldPitch)
+                                            if (!isSustain) onNoteUp(oldPitch)
+                                        }
+                                    }
+                                    pointerToKeyMap[pid] = newPitch
+                                    if (newPitch !in pressedKeys) {
+                                        pressedKeys.add(newPitch)
+                                    }
+                                    onNoteDown(newPitch)
+                                }
+                            }
+                            true
+                        }
+                        MotionEvent.ACTION_POINTER_UP -> {
+                            val pid = motionEvent.getPointerId(actionIndex)
+                            val oldPitch = pointerToKeyMap.remove(pid)
+                            if (oldPitch != null) {
+                                if (oldPitch !in pointerToKeyMap.values) {
+                                    pressedKeys.remove(oldPitch)
+                                    if (!isSustain) onNoteUp(oldPitch)
+                                }
+                            }
+                            true
+                        }
+                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                            for ((_, pitch) in pointerToKeyMap) {
+                                if (!isSustain) onNoteUp(pitch)
+                            }
+                            pointerToKeyMap.clear()
+                            pressedKeys.clear()
+                            true
+                        }
+                        else -> false
+                    }
+                }
+        ) {
+            // 1. White Keys Row
+            Row(modifier = Modifier.fillMaxSize()) {
+                for (i in 0 until totalWhiteKeys) {
+                    val pitch = startNote + whiteKeyOffsets[i]
+                    val isPressed = pitch in pressedKeys
+
+                    Box(
+                        modifier = Modifier
+                            .width(whiteKeyWidth)
+                            .fillMaxHeight()
+                            .padding(horizontal = 0.5.dp)
+                            .clip(RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                            .background(if (isPressed) activeInstrument.defaultColor else Color.White)
+                            .border(1.dp, Color(0xFFCBD5E1), RoundedCornerShape(bottomStart = 8.dp, bottomEnd = 8.dp))
+                            .testTag("key_white_$pitch"),
+                        contentAlignment = Alignment.BottomCenter
+                    ) {
+                        Text(
+                            text = whiteKeyNames[i],
+                            color = if (isPressed) StudioDarkBg else Color(0xFF64748B),
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 8.dp)
+                        )
+                    }
+                }
+            }
+
+            // 2. Black Keys Layer
+            for ((whiteIndex, semitone) in blackKeyOffsets) {
+                val pitch = startNote + semitone
+                val isPressed = pitch in pressedKeys
+                val leftOffset = (whiteKeyWidth * (whiteIndex + 1)) - (blackKeyWidth / 2)
+
+                Box(
+                    modifier = Modifier
+                        .offset(x = leftOffset)
+                        .width(blackKeyWidth)
+                        .height(blackKeyHeight)
+                        .clip(RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
+                        .background(if (isPressed) activeInstrument.defaultColor else Color(0xFF1E293B))
+                        .border(1.dp, Color.Black, RoundedCornerShape(bottomStart = 6.dp, bottomEnd = 6.dp))
+                        .testTag("key_black_$pitch")
+                )
+            }
         }
     }
 }
