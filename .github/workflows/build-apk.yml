@@ -24,19 +24,16 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: 补全配置文件与调试签名
+      - name: 补全配置文件与永久固定调试签名
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
           if [ -f .env.example ] && [ ! -f .env ]; then
             cp .env.example .env
           fi
-          if [ -f debug.keystore.base64 ]; then
-            base64 -d debug.keystore.base64 > debug.keystore
-          elif [ ! -f debug.keystore ]; then
-            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
-          fi
+
+          # 写入永久固定的签名密钥（确保每一次构建签名完全一致，永久支持直接覆盖更新）
+          echo "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" | base64 -d > debug.keystore
           cp debug.keystore app/debug.keystore 2>/dev/null || true
-          chmod +x gradlew
 
       - name: 自动匹配并安装项目原生 Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -44,16 +41,13 @@ jobs:
           gradle-version: wrapper
 
       - name: 编译 Debug APK
-        run: ./gradlew assembleDebug --no-daemon
+        run: gradle assembleDebug
 
       - name: 准备版本号与更新描述
         run: |
           VERSION="v1.0.${{ github.run_number }}"
-          
-          # 1. 将安装包重命名为带版本号的文件名 (例如: Harmonia-Studio-X-v1.0.3.apk)
           cp app/build/outputs/apk/debug/*.apk "./Harmonia-Studio-X-${VERSION}.apk"
           
-          # 2. 自动抓取你在 AI Studio 填写的提交信息生成更新日志
           cat << 'EOF' > release_notes.md
           ### 📝 本次更新内容
           ${{ github.event.head_commit.message }}
