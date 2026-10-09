@@ -68,28 +68,23 @@ fun TopTransportBar(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp)
         ) {
-            // --- Row 1: Brand / Project Identity, User Sync Badge, OLED Clock, Settings ---
+            // --- Row 1: Brand / Project Identity, OLED Clock, BPM, About, User Status ---
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                // Left: App Logo, Project title & User / Cloud Sync Status
+                // Left: App Logo & Project Title
                 Row(
                     modifier = Modifier.weight(1f, fill = false),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    // App Logo Icon
                     Box(
                         modifier = Modifier
                             .size(24.dp)
                             .clip(RoundedCornerShape(6.dp))
-                            .background(
-                                Brush.linearGradient(
-                                    listOf(StudioCyan, StudioViolet)
-                                )
-                            ),
+                            .background(Brush.linearGradient(listOf(StudioCyan, StudioViolet))),
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -106,26 +101,119 @@ fun TopTransportBar(
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.widthIn(max = 120.dp)
+                        overflow = TextOverflow.Ellipsis
                     )
+                }
+
+                // Right: Unified Status & Action Pills (strictly 26.dp height)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.dp)
+                ) {
+                    // OLED Timecode Display
+                    val currentBeat = state.currentBeat
+                    val bar = floor(currentBeat / 4f).toInt() + 1
+                    val beatInBar = (floor(currentBeat).toInt() % 4) + 1
+                    val subBeat = ((currentBeat - floor(currentBeat)) * 100).toInt()
+                    val timeStr = String.format("%02d:%02d:%02d", bar, beatInBar, subBeat)
+
+                    Surface(
+                        color = StudioDarkBg,
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(0.5.dp, StudioBorder),
+                        modifier = Modifier.height(26.dp)
+                    ) {
+                        Box(
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        ) {
+                            Text(
+                                text = timeStr,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 11.sp,
+                                color = StudioCyan
+                            )
+                        }
+                    }
+
+                    // BPM Chip
+                    Surface(
+                        color = StudioSurfaceElevated,
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(0.5.dp, StudioBorder),
+                        modifier = Modifier
+                            .height(26.dp)
+                            .clickable { showBpmDialog = true }
+                            .testTag("bpm_setting_chip")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        ) {
+                            Text(
+                                text = "${state.currentProject?.bpm ?: 120}",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StudioAmber
+                            )
+                            Spacer(modifier = Modifier.width(2.dp))
+                            Text(
+                                text = "BPM",
+                                fontSize = 9.sp,
+                                color = TextMuted,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+
+                    // About App Action Button
+                    Surface(
+                        color = StudioSurfaceElevated,
+                        shape = RoundedCornerShape(6.dp),
+                        border = BorderStroke(0.5.dp, StudioCyan.copy(alpha = 0.5f)),
+                        modifier = Modifier
+                            .height(26.dp)
+                            .clickable { onOpenAbout() }
+                            .testTag("about_app_button")
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "关于软件",
+                                tint = StudioCyan,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(3.dp))
+                            Text(
+                                text = "关于",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StudioCyan
+                            )
+                        }
+                    }
 
                     // User Auth / Cloud Sync Status Chip
                     val profile = state.userProfile
                     Surface(
                         color = if (profile.isLoggedIn) Color(profile.avatarColorHex).copy(alpha = 0.18f) else StudioSurfaceElevated,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(6.dp),
                         border = BorderStroke(
                             0.5.dp,
                             if (profile.isLoggedIn) Color(profile.avatarColorHex).copy(alpha = 0.6f) else StudioBorder
                         ),
                         modifier = Modifier
+                            .height(26.dp)
                             .clickable { onOpenCollab() }
                             .testTag("top_bar_user_profile_chip")
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            modifier = Modifier.padding(horizontal = 6.dp)
                         ) {
                             if (profile.isLoggedIn) {
                                 Box(
@@ -158,7 +246,7 @@ fun TopTransportBar(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "登录同步",
+                                    text = "同步",
                                     color = StudioViolet,
                                     fontSize = 10.sp,
                                     fontWeight = FontWeight.Medium
@@ -166,123 +254,41 @@ fun TopTransportBar(
                             }
                         }
                     }
-                }
-
-                // Right: OLED Timecode + BPM + Language Toggle + About Button
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(5.dp)
-                ) {
-                    // OLED Timecode Display
-                    val currentBeat = state.currentBeat
-                    val bar = floor(currentBeat / 4f).toInt() + 1
-                    val beatInBar = (floor(currentBeat).toInt() % 4) + 1
-                    val subBeat = ((currentBeat - floor(currentBeat)) * 100).toInt()
-                    val timeStr = String.format("%02d:%02d:%02d", bar, beatInBar, subBeat)
-
-                    Surface(
-                        color = StudioDarkBg,
-                        shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(1.dp, StudioBorder)
-                    ) {
-                        Text(
-                            text = timeStr,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 11.sp,
-                            color = StudioCyan,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                        )
-                    }
-
-                    // BPM Chip
-                    Surface(
-                        color = StudioSurfaceElevated,
-                        shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(1.dp, StudioBorder),
-                        modifier = Modifier
-                            .clickable { showBpmDialog = true }
-                            .testTag("bpm_setting_chip")
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                        ) {
-                            Text(
-                                text = "${state.currentProject?.bpm ?: 120}",
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = StudioAmber
-                            )
-                            Spacer(modifier = Modifier.width(2.dp))
-                            Text(
-                                text = "BPM",
-                                fontSize = 9.sp,
-                                color = TextMuted,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
 
                     // Language Switcher Chip
                     Surface(
                         color = StudioSurfaceElevated,
                         shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(1.dp, StudioViolet.copy(alpha = 0.5f)),
+                        border = BorderStroke(0.5.dp, StudioViolet.copy(alpha = 0.5f)),
                         modifier = Modifier
+                            .height(26.dp)
                             .clickable { onToggleLanguage() }
                             .testTag("language_toggle_button")
                     ) {
-                        Text(
-                            text = if (state.language == AppLanguage.SIMPLIFIED_CHINESE) "中" else "EN",
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = StudioViolet,
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
-                        )
-                    }
-
-                    // About App Action Button
-                    Surface(
-                        color = StudioSurfaceElevated,
-                        shape = RoundedCornerShape(6.dp),
-                        border = BorderStroke(1.dp, StudioCyan.copy(alpha = 0.5f)),
-                        modifier = Modifier
-                            .clickable { onOpenAbout() }
-                            .testTag("about_app_button")
-                    ) {
                         Box(
-                            modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp),
-                            contentAlignment = Alignment.Center
+                            contentAlignment = Alignment.Center,
+                            modifier = Modifier.padding(horizontal = 6.dp)
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Default.Info,
-                                    contentDescription = "关于软件",
-                                    tint = StudioCyan,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(2.dp))
-                                Text(
-                                    text = "关于",
-                                    fontSize = 10.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    color = StudioCyan
-                                )
-                            }
+                            Text(
+                                text = if (state.language == AppLanguage.SIMPLIFIED_CHINESE) "中" else "EN",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = StudioViolet
+                            )
                         }
                     }
                 }
             }
 
-            // --- Row 2: Precision Transport Bar (Loop, Metro | Stop, Play, Rec | Vol, Export) ---
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+            // --- Row 2: Precision Transport Bar (Loop, Metro | Center Hero Dock | Vol, Export) ---
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(44.dp)
             ) {
-                // Group 1: Timing toggles (Loop & Metronome)
+                // Group 1 (Left): Timing toggles (Loop & Metronome)
                 Row(
+                    modifier = Modifier.align(Alignment.CenterStart),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
@@ -315,8 +321,9 @@ fun TopTransportBar(
                     }
                 }
 
-                // Group 2: Core Transport Controls (Stop, Play/Pause Hero, Record) - Perfectly Centered & Aligned
+                // Group 2 (Center): Core Transport Controls (Stop, Play/Pause Hero, Record) - Strictly Mathematically Centered
                 Row(
+                    modifier = Modifier.align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -388,8 +395,9 @@ fun TopTransportBar(
                     }
                 }
 
-                // Group 3: Master Volume Popout & Export Action
+                // Group 3 (Right): Master Volume Popout & Export Action
                 Row(
+                    modifier = Modifier.align(Alignment.CenterEnd),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {

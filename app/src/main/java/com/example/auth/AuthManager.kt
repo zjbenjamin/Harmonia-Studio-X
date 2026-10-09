@@ -90,23 +90,27 @@ class AuthManager(context: Context) {
         )
     }
 
-    fun login(provider: AuthProvider, customName: String? = null): UserProfile {
+    fun login(provider: AuthProvider, customName: String? = null, customTag: String? = null): UserProfile {
         val generatedName = if (!customName.isNullOrBlank()) {
             customName.trim()
         } else {
             when (provider) {
                 AuthProvider.GOOGLE -> "Google Studio Producer"
-                AuthProvider.QQ -> "QQ 音乐人 9842"
+                AuthProvider.QQ -> "QQ 音乐人"
                 AuthProvider.WECHAT -> "微信制作达人"
-                AuthProvider.TWITTER_X -> "X Audio Creator @harmonia"
+                AuthProvider.TWITTER_X -> "X Audio Creator"
             }
         }
 
-        val tag = when (provider) {
-            AuthProvider.GOOGLE -> "google.user@gmail.com"
-            AuthProvider.QQ -> "QQ: 87293188"
-            AuthProvider.WECHAT -> "WeChat ID: wx_harmonia"
-            AuthProvider.TWITTER_X -> "@harmonia_producer"
+        val tag = if (!customTag.isNullOrBlank()) {
+            customTag.trim()
+        } else {
+            when (provider) {
+                AuthProvider.GOOGLE -> "producer@gmail.com"
+                AuthProvider.QQ -> "QQ: 87293188"
+                AuthProvider.WECHAT -> "wx_harmonia_producer"
+                AuthProvider.TWITTER_X -> "@harmonia_producer"
+            }
         }
 
         val newProfile = UserProfile(
@@ -124,6 +128,22 @@ class AuthManager(context: Context) {
         saveProfile(newProfile)
         _userProfile.update { newProfile }
         return newProfile
+    }
+
+    fun handleAuthCallback(provider: AuthProvider, authCode: String?, customName: String? = null, customTag: String? = null): UserProfile {
+        val tag = if (!customTag.isNullOrBlank()) {
+            customTag
+        } else if (!authCode.isNullOrBlank()) {
+            when (provider) {
+                AuthProvider.GOOGLE -> "google_user_${authCode.take(6)}@gmail.com"
+                AuthProvider.QQ -> "QQ: ${authCode.take(8)}"
+                AuthProvider.WECHAT -> "wx_${authCode.take(8)}"
+                AuthProvider.TWITTER_X -> "@x_user_${authCode.take(6)}"
+            }
+        } else {
+            null
+        }
+        return login(provider, customName, tag)
     }
 
     fun logout() {

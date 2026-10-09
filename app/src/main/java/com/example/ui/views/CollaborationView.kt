@@ -31,6 +31,7 @@ import androidx.compose.ui.unit.sp
 import com.example.about.AppVersionManager
 import com.example.auth.AuthProvider
 import com.example.auth.UserProfile
+import com.example.ui.components.OAuthDispatcherDialog
 import com.example.ui.i18n.AppLanguage
 import com.example.ui.i18n.StudioI18n
 import com.example.ui.theme.*
@@ -53,8 +54,7 @@ fun CollaborationView(
     var showImportDialog by remember { mutableStateOf(false) }
     var importJsonText by remember { mutableStateOf("") }
     var showExportedJsonDialog by remember { mutableStateOf<String?>(null) }
-    var showCustomNameDialog by remember { mutableStateOf<AuthProvider?>(null) }
-    var customNameInput by remember { mutableStateOf("") }
+    var authDispatcherProvider by remember { mutableStateOf<AuthProvider?>(null) }
 
     val userProfile = state.userProfile
 
@@ -266,7 +266,7 @@ fun CollaborationView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    viewModel.loginWithProvider(AuthProvider.GOOGLE)
+                                    authDispatcherProvider = AuthProvider.GOOGLE
                                 }
                                 .testTag("login_google_button")
                         ) {
@@ -286,7 +286,7 @@ fun CollaborationView(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("使用 Google 谷歌账号登录", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("全球多端工程实时同步与安全备份", color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp)
+                                    Text("全球多端工程实时同步与安全备份 (点击调起授权)", color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp)
                                 }
                                 Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp))
                             }
@@ -299,7 +299,7 @@ fun CollaborationView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    viewModel.loginWithProvider(AuthProvider.QQ)
+                                    authDispatcherProvider = AuthProvider.QQ
                                 }
                                 .testTag("login_qq_button")
                         ) {
@@ -319,7 +319,7 @@ fun CollaborationView(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("使用 腾讯 QQ 快捷互联登录", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("快速同步音乐工程与乐段预设", color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp)
+                                    Text("快速同步音乐工程与乐段预设 (点击调起授权)", color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp)
                                 }
                                 Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp))
                             }
@@ -332,7 +332,7 @@ fun CollaborationView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    viewModel.loginWithProvider(AuthProvider.WECHAT)
+                                    authDispatcherProvider = AuthProvider.WECHAT
                                 }
                                 .testTag("login_wechat_button")
                         ) {
@@ -352,7 +352,7 @@ fun CollaborationView(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("使用 微信 (WeChat) 账号登录", color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("多设备无缝流转与移动端编曲同步", color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp)
+                                    Text("多设备无缝流转与移动端编曲同步 (点击调起授权)", color = Color.White.copy(alpha = 0.85f), fontSize = 10.sp)
                                 }
                                 Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = Color.White.copy(alpha = 0.7f), modifier = Modifier.size(12.dp))
                             }
@@ -366,7 +366,7 @@ fun CollaborationView(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    viewModel.loginWithProvider(AuthProvider.TWITTER_X)
+                                    authDispatcherProvider = AuthProvider.TWITTER_X
                                 }
                                 .testTag("login_twitter_x_button")
                         ) {
@@ -387,7 +387,7 @@ fun CollaborationView(
                                 Spacer(modifier = Modifier.width(10.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text("使用 X (Twitter) 社交账号登录", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                                    Text("云端安全存取与国际化音乐创作者同步", color = TextMuted, fontSize = 10.sp)
+                                    Text("云端安全存取与国际化音乐创作者同步 (点击调起授权)", color = TextMuted, fontSize = 10.sp)
                                 }
                                 Icon(Icons.Default.ArrowForwardIos, contentDescription = null, tint = TextMuted, modifier = Modifier.size(12.dp))
                             }
@@ -881,6 +881,15 @@ fun CollaborationView(
                 }
             },
             containerColor = StudioSurface
+        )
+    }
+
+    // Interactive OAuth Dispatch & Account Confirmation Modal
+    if (authDispatcherProvider != null) {
+        OAuthDispatcherDialog(
+            provider = authDispatcherProvider!!,
+            viewModel = viewModel,
+            onDismiss = { authDispatcherProvider = null }
         )
     }
 }

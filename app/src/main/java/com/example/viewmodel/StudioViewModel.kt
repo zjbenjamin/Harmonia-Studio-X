@@ -14,6 +14,8 @@ import com.example.audio.InstrumentType
 import com.example.auth.AuthManager
 import com.example.auth.AuthProvider
 import com.example.auth.UserProfile
+import com.example.auth.OAuthDispatcher
+import com.example.auth.AuthLaunchResult
 import com.example.collab.CollaborationManager
 import com.example.data.*
 import com.example.midi.*
@@ -894,7 +896,28 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
         val track = _uiState.value.tracks.firstOrNull { it.id == trackId } ?: return
         viewModelScope.launch {
             repository.deleteTrack(track)
-            showToast("Deleted ${track.name}")
+            if (_uiState.value.selectedTrackId == trackId) {
+                val remaining = _uiState.value.tracks.filter { it.id != trackId }
+                _uiState.update {
+                    it.copy(
+                        selectedTrackId = remaining.firstOrNull()?.id,
+                        selectedClipId = null
+                    )
+                }
+            }
+            showToast("已成功删除音轨: ${track.name}")
+        }
+    }
+
+    fun deleteClip(clipId: Long) {
+        val clip = _uiState.value.clips.firstOrNull { it.id == clipId } ?: return
+        notesCache.remove(clip.notesJson)
+        viewModelScope.launch {
+            repository.deleteClip(clip)
+            if (_uiState.value.selectedClipId == clipId) {
+                _uiState.update { it.copy(selectedClipId = null) }
+            }
+            showToast("已成功删除音频片段: ${clip.name}")
         }
     }
 
@@ -1073,8 +1096,41 @@ class StudioViewModel(application: Application) : AndroidViewModel(application) 
 
     // --- Multi-Platform Auth & Cloud Sync Methods ---
 
-    fun loginWithProvider(provider: AuthProvider, customName: String? = null) {
-        val profile = authManager.login(provider, customName)
+    fun launchProviderAuth(context: Context, provider: AuthProvider, preferBrowser: Boolean = false): AuthLaunchResult {
+        val result = OAuthDispatcher.launchProviderAuth(context, provider, preferBrowser)
+        if (result.isLaunched) {
+            showToast(result.targetDescription)
+        } else {
+            showToast(result.error ?: "调起授权失败")
+        }
+        return result
+    }
+
+    fun handleOAuthUri(uri: Uri) {
+        val providerStr = uri.getQueryParameter("provider") ?: uri.lastPathSegment ?: ""
+        val code = uri.getQueryParameter("code") ?: uri.getQueryParameter("auth_code")
+        val provider = AuthProvider.entries.firstOrNull {
+            it.name.equals(providerStr, ignoreCase = true) ||
+            it.displayName.contains(providerStr, ignoreCase = true)
+        } ?: AuthProvider.GOOGLE
+
+        val profile = authManager.handleAuthCallback(provider, code)
+        val proj = _uiState.value.currentProject
+        if (proj != null) {
+            viewModelScope.launch {
+                val updated = proj.copy(
+                    cloudSyncStatus = "Synced (${provider.displayName})",
+                    syncRevision = proj.syncRevision + 1
+                )
+                repository.updateProject(updated)
+                authManager.recordSyncCompleted(_uiState.value.tracks.size)
+            }
+        }
+        showToast("已接收 ${provider.displayName} 授权回调，云端同步已就绪")
+    }
+
+    fun loginWithProvider(provider: AuthProvider, customName: String? = null, customTag: String? = null) {
+        val profile = authManager.login(provider, customName, customTag)
         val proj = _uiState.value.currentProject
         if (proj != null) {
             viewModelScope.launch {
