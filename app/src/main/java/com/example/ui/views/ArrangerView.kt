@@ -57,9 +57,10 @@ fun ArrangerView(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 // Add Track Button
                 Button(
@@ -74,54 +75,52 @@ fun ArrangerView(
                     Text(strings.addTrack, color = StudioDarkBg, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // Smart Chord Generator Trigger
-                    FilledTonalButton(
-                        onClick = onOpenChordGenerator,
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = StudioViolet.copy(alpha = 0.25f),
-                            contentColor = StudioViolet
-                        ),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.testTag("open_chord_generator_button")
-                    ) {
-                        Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(strings.smartChords, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+                // Smart Chord Generator Trigger
+                FilledTonalButton(
+                    onClick = onOpenChordGenerator,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = StudioViolet.copy(alpha = 0.25f),
+                        contentColor = StudioViolet
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("open_chord_generator_button")
+                ) {
+                    Icon(Icons.Default.AutoAwesome, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(strings.smartChords, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
 
-                    // Beat Sequencer Quick Switch
-                    FilledTonalButton(
-                        onClick = { viewModel.setTab(StudioViewTab.BEAT_SEQUENCER) },
-                        colors = ButtonDefaults.filledTonalButtonColors(
-                            containerColor = StudioEmerald.copy(alpha = 0.25f),
-                            contentColor = StudioEmerald
-                        ),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(strings.drumMachine, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+                // Beat Sequencer Quick Switch
+                FilledTonalButton(
+                    onClick = { viewModel.setTab(StudioViewTab.BEAT_SEQUENCER) },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = StudioEmerald.copy(alpha = 0.25f),
+                        contentColor = StudioEmerald
+                    ),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(Icons.Default.GridOn, contentDescription = null, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(strings.drumMachine, fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                }
 
-                    // Export Audio Trigger
-                    Button(
-                        onClick = onOpenAudioExport,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = StudioAmber.copy(alpha = 0.2f),
-                            contentColor = StudioAmber
-                        ),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, StudioAmber.copy(alpha = 0.6f)),
-                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.testTag("arranger_export_audio_button")
-                    ) {
-                        Icon(Icons.Default.GraphicEq, contentDescription = null, tint = StudioAmber, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(strings.exportAudio, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                    }
+                // Export Audio Trigger
+                Button(
+                    onClick = onOpenAudioExport,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StudioAmber.copy(alpha = 0.2f),
+                        contentColor = StudioAmber
+                    ),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StudioAmber.copy(alpha = 0.6f)),
+                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.testTag("arranger_export_audio_button")
+                ) {
+                    Icon(Icons.Default.GraphicEq, contentDescription = null, tint = StudioAmber, modifier = Modifier.size(14.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(strings.exportAudio, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
         }

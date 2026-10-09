@@ -54,7 +54,7 @@ fun BeatSequencerView(
     val strings = StudioI18n.getStrings(state.language)
     val pattern = state.currentBeatPattern
 
-    var filterTab by remember { mutableStateOf(SequencerFilterTab.SYNTH_TRACKS) }
+    var filterTab by remember { mutableStateOf(SequencerFilterTab.ALL_TRACKS) }
     var selectedVelocityLane by remember { mutableStateOf<Pair<String, Int>?>(null) }
     var pitchDialogLane by remember { mutableStateOf<DrumLane?>(null) }
     var showAddSynthDialog by remember { mutableStateOf(false) }
@@ -92,14 +92,16 @@ fun BeatSequencerView(
             ) {
                 // Row 1: Sequencer Title, Transport Controls, Presets, Clear
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Left: Play/Pause button and step playhead counter
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         FilledTonalIconButton(
                             onClick = { viewModel.togglePlay() },

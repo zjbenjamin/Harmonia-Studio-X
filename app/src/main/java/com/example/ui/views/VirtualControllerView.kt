@@ -96,14 +96,16 @@ fun VirtualControllerView(
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
-                // Row 1: Mode Switcher + Sustain + Recording status
+                // Row 1: Controller Mode Switcher + Octave Shift + Sustain + Pitch Wheel Toggle
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     // Switch between Piano Keys and Drum Pads
-                    SingleChoiceSegmentedButtonRow(modifier = Modifier.height(34.dp)) {
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.height(32.dp)) {
                         SegmentedButton(
                             selected = mode == ControllerMode.PIANO,
                             onClick = { mode = ControllerMode.PIANO },
@@ -125,67 +127,62 @@ fun VirtualControllerView(
                     }
 
                     if (mode == ControllerMode.PIANO) {
+                        // Octave Shift Buttons: [-] [C4] [+]
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(2.dp)
                         ) {
-                            // Wheel Toggle (For portrait mode)
-                            if (!isLandscape) {
-                                FilterChip(
-                                    selected = showWheelsInPortrait,
-                                    onClick = { showWheelsInPortrait = !showWheelsInPortrait },
-                                    label = { Text("弯音轮", fontSize = 10.sp) },
-                                    colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = StudioViolet,
-                                        selectedLabelColor = Color.White
-                                    ),
-                                    modifier = Modifier.height(30.dp)
+                            FilledTonalIconButton(
+                                onClick = { if (currentOctave > 1) currentOctave-- },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Text("-", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
+                            }
+                            Surface(
+                                color = StudioSurfaceElevated,
+                                shape = RoundedCornerShape(4.dp),
+                                border = BorderStroke(1.dp, StudioCyan.copy(alpha = 0.5f))
+                            ) {
+                                Text(
+                                    text = "C$currentOctave",
+                                    color = StudioCyan,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                                 )
                             }
-
-                            // Sustain Pedal Toggle
-                            FilterChip(
-                                selected = isSustainOn,
-                                onClick = { isSustainOn = !isSustainOn },
-                                label = { Text(strings.sustain, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = StudioAmber,
-                                    selectedLabelColor = StudioDarkBg
-                                ),
-                                modifier = Modifier.height(30.dp)
-                            )
-
-                            // Octave Shift Buttons
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(3.dp)
+                            FilledTonalIconButton(
+                                onClick = { if (currentOctave < 7) currentOctave++ },
+                                modifier = Modifier.size(28.dp)
                             ) {
-                                FilledTonalIconButton(
-                                    onClick = { if (currentOctave > 1) currentOctave-- },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Text("-", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                }
-                                Surface(
-                                    color = StudioSurfaceElevated,
-                                    shape = RoundedCornerShape(4.dp),
-                                    border = BorderStroke(1.dp, StudioCyan.copy(alpha = 0.5f))
-                                ) {
-                                    Text(
-                                        text = "C$currentOctave",
-                                        color = StudioCyan,
-                                        fontWeight = FontWeight.ExtraBold,
-                                        fontSize = 11.sp,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                                    )
-                                }
-                                FilledTonalIconButton(
-                                    onClick = { if (currentOctave < 7) currentOctave++ },
-                                    modifier = Modifier.size(28.dp)
-                                ) {
-                                    Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
-                                }
+                                Text("+", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = TextPrimary)
                             }
+                        }
+
+                        // Sustain Pedal Toggle
+                        FilterChip(
+                            selected = isSustainOn,
+                            onClick = { isSustainOn = !isSustainOn },
+                            label = { Text(strings.sustain, fontSize = 10.sp, fontWeight = FontWeight.Bold) },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = StudioAmber,
+                                selectedLabelColor = StudioDarkBg
+                            ),
+                            modifier = Modifier.height(28.dp)
+                        )
+
+                        // Wheel Toggle (For portrait mode)
+                        if (!isLandscape) {
+                            FilterChip(
+                                selected = showWheelsInPortrait,
+                                onClick = { showWheelsInPortrait = !showWheelsInPortrait },
+                                label = { Text("弯音轮", fontSize = 10.sp) },
+                                colors = FilterChipDefaults.filterChipColors(
+                                    selectedContainerColor = StudioViolet,
+                                    selectedLabelColor = Color.White
+                                ),
+                                modifier = Modifier.height(28.dp)
+                            )
                         }
                     }
 
@@ -194,12 +191,14 @@ fun VirtualControllerView(
                     }
                 }
 
-                // Row 2 (When in Piano Mode): Proportions & Octave Jump Strip
+                // Row 2 (When in Piano Mode): Proportions Selector & Octave Jump Strip
                 if (mode == ControllerMode.PIANO) {
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
                     ) {
                         // Key Proportions / Scale Selector
                         Row(
@@ -245,20 +244,20 @@ fun VirtualControllerView(
                                 val isCur = oct == currentOctave
                                 Box(
                                     modifier = Modifier
-                                        .size(22.dp)
-                                        .clip(RoundedCornerShape(3.dp))
+                                        .size(24.dp)
+                                        .clip(RoundedCornerShape(4.dp))
                                         .background(if (isCur) StudioCyan else StudioDarkBg)
                                         .border(
                                             0.5.dp,
                                             if (isCur) Color.White else StudioBorder,
-                                            RoundedCornerShape(3.dp)
+                                            RoundedCornerShape(4.dp)
                                         )
                                         .clickable { currentOctave = oct },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Text(
                                         text = "C$oct",
-                                        fontSize = 8.sp,
+                                        fontSize = 9.sp,
                                         fontWeight = if (isCur) FontWeight.ExtraBold else FontWeight.Normal,
                                         color = if (isCur) StudioDarkBg else TextMuted
                                     )

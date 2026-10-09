@@ -206,46 +206,57 @@ class AudioEngine {
         val floatMixBuffer = FloatArray(BUFFER_SIZE_FRAMES)
 
         while (isEngineRunning && audioTrack != null) {
-            floatMixBuffer.fill(0f)
+            try {
+                floatMixBuffer.fill(0f)
 
-            val currentBend = pitchBendSemitones
-            val currentMod = modulationDepth
+                val currentBend = pitchBendSemitones
+                val currentMod = modulationDepth
 
-            // Render active voices
-            synchronized(voiceLock) {
-                val iterator = activeVoices.iterator()
-                while (iterator.hasNext()) {
-                    val voice = iterator.next()
-                    val voiceFinished = voice.renderNextBlock(floatMixBuffer, BUFFER_SIZE_FRAMES, currentBend, currentMod)
-                    if (voiceFinished) {
-                        iterator.remove()
+                // Render active voices
+                synchronized(voiceLock) {
+                    val iterator = activeVoices.iterator()
+                    while (iterator.hasNext()) {
+                        val voice = iterator.next()
+                        val voiceFinished = voice.renderNextBlock(floatMixBuffer, BUFFER_SIZE_FRAMES, currentBend, currentMod)
+                        if (voiceFinished) {
+                            iterator.remove()
+                        }
                     }
                 }
-            }
 
-            // Render metronome if triggered
-            if (metronomeSamplesLeft > 0) {
-                val count = min(metronomeSamplesLeft, BUFFER_SIZE_FRAMES)
-                val phaseIncrement = (2.0 * PI * metronomeFreq) / SAMPLE_RATE
-                for (i in 0 until count) {
-                    val decay = metronomeSamplesLeft.toFloat() / (SAMPLE_RATE * 0.035f)
-                    val sample = (sin(metronomePhase) * decay * 0.45f).toFloat()
-                    floatMixBuffer[i] += sample
-                    metronomePhase += phaseIncrement
-                    metronomeSamplesLeft--
+                // Render metronome if triggered
+                if (metronomeSamplesLeft > 0) {
+                    val count = min(metronomeSamplesLeft, BUFFER_SIZE_FRAMES)
+                    val phaseIncrement = (2.0 * PI * metronomeFreq) / SAMPLE_RATE
+                    for (i in 0 until count) {
+                        val decay = metronomeSamplesLeft.toFloat() / (SAMPLE_RATE * 0.035f)
+                        val sample = (sin(metronomePhase) * decay * 0.45f).toFloat()
+                        floatMixBuffer[i] += sample
+                        metronomePhase += phaseIncrement
+                        metronomeSamplesLeft--
+                    }
                 }
-            }
 
-            // Apply master gain and soft clipping (tanh limiter)
-            val gain = masterVolume
-            for (i in 0 until BUFFER_SIZE_FRAMES) {
-                var s = floatMixBuffer[i] * gain
-                // Soft limiter using tanh
-                s = tanh(s)
-                audioBuffer[i] = (s * 32767f).coerceIn(-32767f, 32767f).toInt().toShort()
-            }
+                // Apply master gain and soft clipping (tanh limiter)
+                val gain = masterVolume
+                for (i in 0 until BUFFER_SIZE_FRAMES) {
+                    var s = floatMixBuffer[i] * gain
+                    // Soft limiter using tanh
+                    s = tanh(s)
+                    audioBuffer[i] = (s * 32767f).coerceIn(-32767f, 32767f).toInt().toShort()
+                }
 
-            audioTrack?.write(audioBuffer, 0, BUFFER_SIZE_FRAMES)
+                val track = audioTrack
+                if (track != null && track.state == AudioTrack.STATE_INITIALIZED) {
+                    if (track.playState != AudioTrack.PLAYSTATE_PLAYING) {
+                        track.play()
+                    }
+                    track.write(audioBuffer, 0, BUFFER_SIZE_FRAMES)
+                }
+            } catch (e: Exception) {
+                Log.w("AudioEngine", "Audio loop transient interruption", e)
+                try { Thread.sleep(20) } catch (_: Exception) {}
+            }
         }
     }
 
@@ -708,46 +719,47 @@ class AudioEngine {
             val subChunk2Size = totalFrames * numChannels * bytesPerSample
             val chunkSize = 36 + subChunk2Size
 
-            val byteBuffer = ByteBuffer.allocate(44 + subChunk2Size).order(ByteOrder.LITTLE_ENDIAN)
-
-            // RIFF chunk
-            byteBuffer.put("RIFF".toByteArray())
-            byteBuffer.putInt(chunkSize)
-            byteBuffer.put("WAVE".toByteArray())
-            // fmt sub-chunk
-            byteBuffer.put("fmt ".toByteArray())
-            byteBuffer.putInt(16) // Subchunk1Size
-            byteBuffer.putShort(1) // PCM format
-            byteBuffer.putShort(numChannels.toShort()) // 2 channels (Stereo)
-            byteBuffer.putInt(SAMPLE_RATE)
-            byteBuffer.putInt(SAMPLE_RATE * numChannels * bytesPerSample) // ByteRate
-            byteBuffer.putShort((numChannels * bytesPerSample).toShort()) // BlockAlign (4)
-            byteBuffer.putShort(16) // BitsPerSample
-            // data sub-chunk
-            byteBuffer.put("data".toByteArray())
-            byteBuffer.putInt(subChunk2Size)
-
-            for (i in 0 until totalFrames) {
-                var l = tanh(leftBuffer[i] * targetGain)
-                var r = tanh(rightBuffer[i] * targetGain)
-
-                val sL = (l * 32767f).coerceIn(-32767f, 32767f).toInt().toShort()
-                val sR = (r * 32767f).coerceIn(-32767f, 32767f).toInt().toShort()
-
-                byteBuffer.putShort(sL)
-                byteBuffer.putShort(sR)
-
-                if (i % 20000 == 0) {
-                    onProgress?.invoke(0.7f + (i.toFloat() / totalFrames) * 0.3f)
-                }
-            }
-
-            onProgress?.invoke(1.0f)
-
             outputFile.parentFile?.mkdirs()
             FileOutputStream(outputFile).use { fos ->
-                fos.write(byteBuffer.array())
+                val headerBuffer = ByteBuffer.allocate(44).order(ByteOrder.LITTLE_ENDIAN)
+                headerBuffer.put("RIFF".toByteArray())
+                headerBuffer.putInt(chunkSize)
+                headerBuffer.put("WAVE".toByteArray())
+                headerBuffer.put("fmt ".toByteArray())
+                headerBuffer.putInt(16)
+                headerBuffer.putShort(1)
+                headerBuffer.putShort(numChannels.toShort())
+                headerBuffer.putInt(SAMPLE_RATE)
+                headerBuffer.putInt(SAMPLE_RATE * numChannels * bytesPerSample)
+                headerBuffer.putShort((numChannels * bytesPerSample).toShort())
+                headerBuffer.putShort(16)
+                headerBuffer.put("data".toByteArray())
+                headerBuffer.putInt(subChunk2Size)
+                fos.write(headerBuffer.array())
+
+                val chunkFrames = 4096
+                val chunkBytes = ByteBuffer.allocate(chunkFrames * numChannels * bytesPerSample).order(ByteOrder.LITTLE_ENDIAN)
+                var frameOffset = 0
+                while (frameOffset < totalFrames) {
+                    val count = min(chunkFrames, totalFrames - frameOffset)
+                    chunkBytes.clear()
+                    for (i in 0 until count) {
+                        val idx = frameOffset + i
+                        val l = tanh(leftBuffer[idx] * targetGain)
+                        val r = tanh(rightBuffer[idx] * targetGain)
+                        val sL = (l * 32767f).coerceIn(-32767f, 32767f).toInt().toShort()
+                        val sR = (r * 32767f).coerceIn(-32767f, 32767f).toInt().toShort()
+                        chunkBytes.putShort(sL)
+                        chunkBytes.putShort(sR)
+                    }
+                    fos.write(chunkBytes.array(), 0, count * numChannels * bytesPerSample)
+                    frameOffset += count
+                    if (frameOffset % 16384 == 0) {
+                        onProgress?.invoke(0.7f + (frameOffset.toFloat() / totalFrames) * 0.3f)
+                    }
+                }
             }
+            onProgress?.invoke(1.0f)
             return true
         } catch (e: Exception) {
             Log.e("AudioEngine", "Failed to export Stereo WAV", e)

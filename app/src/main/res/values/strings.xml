@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">Harmonia</string>
+    <string name="app_name">Harmonia Studio</string>
     <string name="studio_title">Harmonia Studio</string>
     <string name="studio_subtitle">Music Arranger &amp; DAW</string>
 </resources>

@@ -2,12 +2,11 @@ package com.example.ui
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.*
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -19,11 +18,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.components.AboutModal
 import com.example.ui.components.AudioExportDialog
 import com.example.ui.components.ChordGeneratorModal
+import com.example.ui.components.LiveRecordingModal
 import com.example.ui.components.TopTransportBar
 import com.example.ui.theme.*
 import com.example.ui.views.*
@@ -40,6 +42,8 @@ fun StudioMainScreen(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showChordModal by remember { mutableStateOf(false) }
     var showAudioExportModal by remember { mutableStateOf(false) }
+    var showLiveRecordingModal by remember { mutableStateOf(false) }
+    var showAboutModal by remember { mutableStateOf(false) }
 
     // Back handler to navigate back to Arranger if on sub-screens
     BackHandler(enabled = state.currentTab != StudioViewTab.ARRANGER) {
@@ -64,7 +68,13 @@ fun StudioMainScreen(
             TopTransportBar(
                 state = state,
                 onTogglePlay = { viewModel.togglePlay() },
-                onToggleRecord = { viewModel.toggleRecord() },
+                onToggleRecord = {
+                    if (state.isRecording) {
+                        viewModel.toggleRecord()
+                    } else {
+                        showLiveRecordingModal = true
+                    }
+                },
                 onStop = { viewModel.stopPlayback() },
                 onToggleLoop = { viewModel.toggleLoop() },
                 onToggleMetronome = { viewModel.toggleMetronome() },
@@ -72,7 +82,8 @@ fun StudioMainScreen(
                 onVolumeChange = { viewModel.setMasterVolume(it) },
                 onOpenCollab = { viewModel.setTab(StudioViewTab.COLLAB) },
                 onExportAudio = { showAudioExportModal = true },
-                onToggleLanguage = { viewModel.toggleLanguage() }
+                onToggleLanguage = { viewModel.toggleLanguage() },
+                onOpenAbout = { showAboutModal = true }
             )
         },
         bottomBar = {
@@ -127,7 +138,8 @@ fun StudioMainScreen(
                     CollaborationView(
                         state = state,
                         viewModel = viewModel,
-                        onOpenAudioExport = { showAudioExportModal = true }
+                        onOpenAudioExport = { showAudioExportModal = true },
+                        onOpenAbout = { showAboutModal = true }
                     )
                 }
             }
@@ -144,7 +156,7 @@ fun StudioMainScreen(
                 Surface(
                     color = StudioSurfaceActive,
                     shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, StudioCyan),
+                    border = BorderStroke(1.dp, StudioCyan),
                     shadowElevation = 8.dp
                 ) {
                     Row(
@@ -182,6 +194,22 @@ fun StudioMainScreen(
             onDismiss = { showAudioExportModal = false }
         )
     }
+
+    // Live Recording Modal (Microphone Vocal/Take & MIDI)
+    if (showLiveRecordingModal) {
+        LiveRecordingModal(
+            state = state,
+            viewModel = viewModel,
+            onDismiss = { showLiveRecordingModal = false }
+        )
+    }
+
+    // About & Version Update History Modal
+    if (showAboutModal) {
+        AboutModal(
+            onDismiss = { showAboutModal = false }
+        )
+    }
 }
 
 @Composable
@@ -194,7 +222,7 @@ private fun StudioBottomNavBar(
 
     Surface(
         color = StudioSurface,
-        border = androidx.compose.foundation.BorderStroke(1.dp, StudioBorder),
+        border = BorderStroke(1.dp, StudioBorder),
         modifier = Modifier
             .fillMaxWidth()
             .navigationBarsPadding()
@@ -202,10 +230,9 @@ private fun StudioBottomNavBar(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(vertical = 4.dp, horizontal = 6.dp),
-            horizontalArrangement = Arrangement.SpaceAround,
-            verticalAlignment = Alignment.CenterVertically
+                .padding(vertical = 4.dp, horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceEvenly
         ) {
             val tabs = listOf(
                 StudioTabItem(StudioViewTab.ARRANGER, strings.tabArranger, Icons.Default.ViewAgenda),
@@ -228,30 +255,33 @@ private fun StudioBottomNavBar(
                 }
 
                 Surface(
-                    color = if (isSelected) tabColor.copy(alpha = 0.18f) else Color.Transparent,
-                    shape = RoundedCornerShape(10.dp),
-                    border = if (isSelected) androidx.compose.foundation.BorderStroke(1.dp, tabColor.copy(alpha = 0.5f)) else null,
+                    color = if (isSelected) tabColor.copy(alpha = 0.16f) else Color.Transparent,
+                    shape = RoundedCornerShape(8.dp),
+                    border = if (isSelected) BorderStroke(1.dp, tabColor.copy(alpha = 0.5f)) else null,
                     modifier = Modifier
+                        .weight(1f)
                         .clickable { onTabSelect(item.tab) }
-                        .padding(horizontal = 4.dp)
+                        .padding(horizontal = 2.dp)
                         .testTag("tab_${item.tab.name}")
                 ) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        modifier = Modifier.padding(vertical = 5.dp)
                     ) {
                         Icon(
                             imageVector = item.icon,
                             contentDescription = item.label,
                             tint = if (isSelected) tabColor else TextMuted,
-                            modifier = Modifier.size(20.dp)
+                            modifier = Modifier.size(19.dp)
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
                             text = item.label,
-                            fontSize = 10.sp,
-                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) tabColor else TextMuted
+                            fontSize = 9.sp,
+                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                            color = if (isSelected) tabColor else TextMuted,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                 }
